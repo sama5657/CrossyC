@@ -125,19 +125,31 @@ export default function Game() {
         explorerUrl: getExplorerUrl(txHash),
       });
     } catch (error: any) {
-      console.error("Failed to save score:", error);
-      
       let errorMessage = "Failed to save score on-chain";
-      if (error?.message?.includes("Contract not deployed")) {
+      let isUserRejection = false;
+
+      if (error?.code === 4001 || error?.message?.includes("User rejected")) {
+        errorMessage = "Transaction rejected. Your score was not saved.";
+        isUserRejection = true;
+      } else if (error?.message?.includes("Contract not deployed")) {
         errorMessage = "Smart contract not deployed. Please deploy the contract first and set VITE_CONTRACT_ADDRESS in .env file.";
       } else if (error?.message?.includes("Lower score")) {
         errorMessage = "Your score must be higher than your previous best score to save on-chain.";
       }
-      
-      setTransactionData({
-        status: "failed",
-        error: errorMessage,
-      });
+
+      if (isUserRejection) {
+        setShowTransactionModal(false);
+        toast({
+          title: "Transaction Cancelled",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        setTransactionData({
+          status: "failed",
+          error: errorMessage,
+        });
+      }
     }
   };
 
