@@ -28,22 +28,38 @@ export default function Game() {
   const gameInstanceRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !walletState.isConnected) return;
 
-    const game = initializeGame(
-      canvasRef.current,
-      (newScore) => setScore(newScore),
-      () => setGameOver(true)
-    );
+    const initGame = async () => {
+      // Wait for Three.js to load
+      let attempts = 0;
+      while (!window.THREE && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
 
-    gameInstanceRef.current = game;
+      if (!window.THREE) {
+        console.error("Three.js failed to load");
+        return;
+      }
+
+      const game = initializeGame(
+        canvasRef.current!,
+        (newScore) => setScore(newScore),
+        () => setGameOver(true)
+      );
+
+      gameInstanceRef.current = game;
+    };
+
+    initGame();
 
     return () => {
       if (canvasRef.current) {
         canvasRef.current.innerHTML = "";
       }
     };
-  }, []);
+  }, [walletState.isConnected]);
 
   const handleConnectWallet = async () => {
     setWalletState((prev) => ({ ...prev, isConnecting: true }));
