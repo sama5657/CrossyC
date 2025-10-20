@@ -1,0 +1,286 @@
+🧩 Project Title
+
+Crossy Chain — Gasless 3D On-Chain Game (Monad × MetaMask Smart Accounts)
+
+🎯 Objective
+
+Transform the existing HTML/Three.js Crossy Road clone into a fully decentralized dApp running on Monad Testnet, using MetaMask Smart Accounts (via the Delegation Toolkit SDK) to record each player’s best score on-chain, preferably through gasless (sponsored) transactions.
+
+Deliver a judge-ready submission for the MetaMask × Monad Dev Cook-Off, including a working demo, GitHub repo, deployment scripts, and documentation.
+
+🧱 Scope
+✅ In Scope
+
+Integrate MetaMask Smart Accounts client-side.
+
+Add on-chain score tracking via a ScoreStore Solidity contract.
+
+Ensure all interactions occur on Monad Testnet (chainId 10143).
+
+Support gasless or Paymaster-sponsored transactions.
+
+Preserve original gameplay and visuals.
+
+Provide complete build, deployment, and demo documentation.
+
+❌ Out of Scope
+
+Major redesign of game graphics or physics.
+
+Backend leaderboard API (optional future feature).
+
+Cross-chain bridge (only single-chain demo).
+
+⚙️ System Architecture
+Player  ─►  Browser UI (Three.js Game)
+          │
+          ▼
+  MetaMask Smart Account Client
+  (Delegation Toolkit SDK + Viem)
+          │
+          ▼
+  Monad Testnet  (RPC: https://testnet-rpc.monad.xyz/)
+          │
+          ▼
+  ScoreStore Contract  (Solidity)
+          │
+          ▼
+  Block Explorer: https://testnet.monadexplorer.com/
+
+Data Flow
+
+User connects wallet → Delegation Toolkit creates Smart Account.
+
+Game session → Player earns score.
+
+Game Over → JS calls saveScore(score) → Smart Account sends txn to contract.
+
+Transaction mined → Score recorded on-chain, explorer link shown.
+
+💻 Tech Stack
+Layer	Technology	Purpose
+Frontend	HTML5 + CSS3 + Three.js	Existing game rendering
+Web3 SDK	@metamask/delegation-toolkit, viem	Smart Account integration
+Blockchain	Monad Testnet (chainId 10143)	On-chain storage
+Smart Contract	Solidity 0.8.20 + Hardhat	Score tracking
+Deployment	Hardhat + dotenv	Contract deployment
+Hosting	Vercel / Netlify / Static Server	Frontend hosting
+🔗 Monad Network Details (Confirmed)
+Parameter	Value
+Network Name	Monad Testnet
+RPC URL	https://testnet-rpc.monad.xyz/
+Chain ID	10143 (0x279f)
+Currency	MON
+Explorer	https://testnet.monadexplorer.com/
+🧠 Functional Requirements
+ID	Feature	Description
+F-01	Connect Wallet	Button to connect MetaMask Smart Account using Delegation Toolkit.
+F-02	Display Smart Account	Show the generated Smart Account address on screen.
+F-03	Save Score	On game over, call saveScore(uint256) via Smart Account.
+F-04	Gasless TX (optional)	Integrate sponsored Paymaster logic or note fallback (user pays test MON).
+F-05	View on Explorer	Provide link to https://testnet.monadexplorer.com/tx/<hash> after txn.
+F-06	Persistent High Score	Contract must only update if new score > stored score.
+F-07	Responsive UI	Retain original mobile controls & styling.
+🧾 Non-Functional Requirements
+
+Performance: maintain ≥ 60 FPS gameplay.
+
+Security: validate score before submission; prevent arbitrary score injection.
+
+Compatibility: Chrome/Edge ≥ v120 with MetaMask v11+.
+
+Scalability: Smart Contract must handle ≥ 10 k players.
+
+Gas: < 0.01 MON per save.
+
+🧰 Deliverables & Folder Structure
+crossy-chain/
+│
+├─ index.html            # Updated UI, Connect Wallet button, ESM imports
+├─ script.js             # Game + saveScore integration
+├─ style.css             # Minor UI spacing
+│
+├─ web3/
+│   ├─ contracts/
+│   │   └─ ScoreStore.sol
+│   ├─ scripts/
+│   │   └─ deploy.js
+│   └─ hardhat.config.js
+│
+├─ .env.example
+├─ package.json
+├─ README.md
+└─ demo/ (optional assets)
+
+🧩 Smart Contract Specification
+ScoreStore.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract ScoreStore {
+    mapping(address => uint256) public scores;
+    event ScoreSaved(address indexed player, uint256 score);
+
+    function saveScore(uint256 _score) external {
+        require(_score > scores[msg.sender], "Lower score");
+        scores[msg.sender] = _score;
+        emit ScoreSaved(msg.sender, _score);
+    }
+
+    function getScore(address _player) external view returns (uint256) {
+        return scores[_player];
+    }
+}
+
+🧩 Frontend Integration Details
+Connect Wallet Flow
+import { createSmartAccountClient } from "https://esm.sh/@metamask/delegation-toolkit@latest";
+import { encodeFunctionData, http, defineChain } from "https://esm.sh/viem@1.0.0";
+
+const monad = defineChain({
+  id: 10143,
+  name: "Monad Testnet",
+  rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz/"] } },
+});
+
+let client, smartAccount;
+async function connectWallet() {
+  client = await createSmartAccountClient({ chain: monad, transport: http() });
+  smartAccount = await client.getSmartAccount();
+  document.getElementById("walletAddress").innerText = smartAccount.address;
+}
+
+Save Score Function
+async function saveScore(score) {
+  const CONTRACT_ADDRESS = "REPLACE_WITH_DEPLOYED_ADDRESS";
+  const tx = await client.sendTransaction({
+    to: CONTRACT_ADDRESS,
+    data: encodeFunctionData({
+      abi: [{ name: "saveScore", type: "function", inputs: [{ name: "_score", type: "uint256" }] }],
+      args: [score],
+    }),
+  });
+  alert(`Score saved! Tx: ${tx}`);
+}
+
+Hook Into Game Logic
+
+In script.js, right after the “game over” detection:
+
+if (typeof saveScore === "function") {
+  saveScore(currentLane);  // currentLane = player's score
+}
+
+🧱 Hardhat Configuration (web3/hardhat.config.js)
+require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
+
+module.exports = {
+  solidity: "0.8.20",
+  networks: {
+    monad: {
+      url: process.env.MONAD_RPC || "https://testnet-rpc.monad.xyz/",
+      chainId: 10143,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+  },
+};
+
+.env.example
+PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+MONAD_RPC=https://testnet-rpc.monad.xyz/
+
+🧱 Deployment Steps
+
+Install
+
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox dotenv
+
+
+Compile
+
+npx hardhat compile
+
+
+Deploy
+
+npx hardhat run web3/scripts/deploy.js --network monad
+
+
+Update frontend
+
+Copy printed contract address into index.html → CONTRACT_ADDRESS.
+
+🧭 Testing & Validation
+Test ID	Scenario	Expected Result
+T-01	Connect Wallet	Smart Account address displayed
+T-02	Play Game → Game Over	“Score saved” alert with tx hash
+T-03	View on Explorer	Link opens testnet.monadexplorer.com/tx/...
+T-04	Submit Lower Score	Rejected by contract
+T-05	No Wallet → Save Score	Prompt user to connect
+🧪 QA Checklist
+
+ Game loads properly on desktop and mobile.
+
+ Smart Account creation works.
+
+ Tx hash visible in alert/console.
+
+ Contract state updates on explorer.
+
+ UI responsive.
+
+🧠 Milestones & Timeline
+Milestone	Description	Duration
+M0	Project setup, Hardhat init	0.5 day
+M1	Contract build + deploy	1 day
+M2	Frontend integration	1.5 days
+M3	Testing + debug	1 day
+M4	Demo recording + submission	0.5 day
+
+Total: ≈ 4–5 days end-to-end.
+
+🧩 Demo Video Script
+
+Intro (5 sec) – “This is Crossy Chain, a MetaMask Smart Account game on Monad Testnet.”
+
+Connect Wallet (10 sec) – Click Connect Wallet → show Smart Account address.
+
+Gameplay (15 sec) – Player moves chicken → collect points.
+
+Game Over (10 sec) – Alert shows “Score saved! Tx 0x…”.
+
+Explorer (10 sec) – Open link to https://testnet.monadexplorer.com/tx/<hash> showing score save.
+
+Outro (5 sec) – “Gasless gameplay powered by MetaMask Smart Accounts on Monad.”
+
+🛡️ Security & Best Practices
+
+Never expose private keys in the frontend.
+
+Contract keeps minimal logic — no external calls.
+
+Use require(_score > scores[msg.sender]) to prevent score downgrades.
+
+Sanitize UI inputs.
+
+Document that txs occur on testnet only.
+
+🧩 Future Extensions
+
+Leaderboard Contract — aggregate all scores.
+
+NFT Rewards — mint NFT badge for high scores.
+
+Cross-chain replay via another testnet.
+
+Paymaster Service for true gasless transactions.
+
+🏁 Acceptance Criteria
+
+✅ Connect Wallet creates Smart Account
+✅ Game plays without lag
+✅ On-chain score recorded and visible in explorer
+✅ Repo builds and deploys without error
+✅ README contains clear setup instructions
+✅ Demo video meets event criteria
