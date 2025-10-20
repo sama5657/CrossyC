@@ -199,6 +199,7 @@ export default function Game() {
         isSavingScore={transactionData.status === "pending"}
         onRetry={handleRetry}
         onSubmitScore={handleSaveScore}
+        onClose={handleRetry}
       />
     </div>
   );
