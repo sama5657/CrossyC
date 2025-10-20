@@ -59,16 +59,17 @@ export default function Game() {
       let errorMessage = "Failed to connect wallet";
 
       if (error instanceof Error) {
-        if (error.message.includes("MetaMask not installed")) {
+        if (error.name === "MetaMaskNotInstalledError" || error.message.includes("MetaMask not installed")) {
           errorMessage = "MetaMask not installed. Please install MetaMask browser extension to play.";
-        } else if (error.message.includes("User rejected")) {
-          errorMessage = "Connection request was rejected.";
+        } else if (error.name === "UserRejectedError" || error.message.includes("User rejected")) {
+          errorMessage = "Connection request was rejected. Please try again.";
+        } else if (error.message.includes("Chain")) {
+          errorMessage = "Failed to switch to Monad testnet. Please try again.";
         } else {
-          errorMessage = error.message;
+          errorMessage = "Failed to connect wallet. Please try again.";
         }
       }
 
-      console.error("Failed to connect wallet:", error);
       setWalletError(errorMessage);
       setWalletState({
         isConnected: false,
