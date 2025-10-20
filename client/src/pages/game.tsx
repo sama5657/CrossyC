@@ -186,6 +186,17 @@ export default function Game() {
 
       <NetworkBadge isConnected={walletState.isConnected} />
 
+      <Button
+        onClick={() => setLocation("/leaderboard")}
+        variant="outline"
+        size="sm"
+        className="fixed top-8 right-[200px] z-40 text-xs"
+        data-testid="button-view-leaderboard"
+      >
+        <TrendingUp className="mr-2 h-4 w-4" />
+        Leaderboard
+      </Button>
+
       <TransactionModal
         isOpen={showTransactionModal}
         status={transactionData.status}
