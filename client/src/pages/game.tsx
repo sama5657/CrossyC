@@ -196,7 +196,9 @@ export default function Game() {
         score={score}
         transactionHash={transactionData.hash}
         explorerUrl={transactionData.explorerUrl}
+        isSavingScore={transactionData.status === "pending"}
         onRetry={handleRetry}
+        onSubmitScore={handleSaveScore}
       />
     </div>
   );
