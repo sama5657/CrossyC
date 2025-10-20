@@ -153,8 +153,9 @@ export default function Game() {
         isConnecting={walletState.isConnecting}
         smartAccountAddress={walletState.smartAccountAddress}
         onConnect={handleConnectWallet}
-        error={walletError}
       />
+
+      <Toaster />
 
       <NetworkBadge isConnected={walletState.isConnected} />
 
