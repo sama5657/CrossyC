@@ -28,9 +28,16 @@ export function GameOverModal({
   isSavingScore,
   onRetry,
   onSubmitScore,
+  onClose,
 }: GameOverModalProps) {
+  const handleOpenChange = (open: boolean) => {
+    if (!open && onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         className="sm:max-w-md backdrop-blur-md bg-card/95 border-2 border-destructive"
         data-testid="modal-game-over"
