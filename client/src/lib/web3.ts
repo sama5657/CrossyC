@@ -161,6 +161,101 @@ export function getExplorerUrl(hash: string): string {
   return `${MONAD_TESTNET.blockExplorers.default.url}/tx/${hash}`;
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  player: Address;
+  score: number;
+  timestamp: number;
+}
+
+export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
+  try {
+    const response = await fetch("https://testnet-rpc.monad.xyz/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_getLogs",
+        params: [
+          {
+            address: CONTRACT_ADDRESS,
+            topics: [
+              "0x" + Array(64).fill(0).join(""), // ScoreSaved event selector
+            ],
+            fromBlock: "0x0",
+          },
+        ],
+        id: 1,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!data.result) {
+      return [];
+    }
+
+    const entries: LeaderboardEntry[] = [];
+    const playerScores = new Map<string, { score: number; blockNumber: number }>();
+
+    // Parse logs and get latest score for each player
+    for (const log of data.result) {
+      const player = `0x${log.topics[1].slice(-40)}` as Address;
+      const scoreHex = log.data.slice(0, 66);
+      const score = parseInt(scoreHex, 16);
+      const blockNumber = parseInt(log.blockNumber, 16);
+
+      const existing = playerScores.get(player);
+      if (!existing || blockNumber > existing.blockNumber) {
+        playerScores.set(player, { score, blockNumber });
+      }
+    }
+
+    // Convert to array and sort by score descending
+    const sorted = Array.from(playerScores.entries())
+      .map(([player, data]) => ({
+        player: player as Address,
+        score: data.score,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20); // Top 20
+
+    // Get block timestamps for each score
+    for (let i = 0; i < sorted.length; i++) {
+      const player = sorted[i].player;
+      const blockResponse = await fetch("https://testnet-rpc.monad.xyz/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: CONTRACT_ADDRESS,
+              data: `0x2a086c84${player.slice(2)}`, // getScore(address) selector
+            },
+            "latest",
+          ],
+          id: 1,
+        }),
+      });
+
+      // Use current timestamp as fallback since we can't easily get block timestamp
+      entries.push({
+        rank: i + 1,
+        player,
+        score: sorted[i].score,
+        timestamp: Math.floor(Date.now() / 1000),
+      });
+    }
+
+    return entries;
+  } catch (error) {
+    console.error("Failed to fetch leaderboard:", error);
+    return [];
+  }
+}
+
 declare global {
   interface Window {
     ethereum?: any;
