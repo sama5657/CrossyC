@@ -66,12 +66,24 @@ export const publicClient = createPublicClient({
 
 export async function connectWallet() {
   if (typeof window.ethereum === "undefined") {
-    throw new Error("MetaMask not installed");
+    const error = new Error("MetaMask not installed");
+    error.name = "MetaMaskNotInstalledError";
+    throw error;
   }
 
-  const accounts = await window.ethereum.request({
-    method: "eth_requestAccounts",
-  }) as Address[];
+  let accounts: Address[] = [];
+  try {
+    accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    }) as Address[];
+  } catch (error: any) {
+    if (error?.code === 4001) {
+      const cancelError = new Error("User rejected connection");
+      cancelError.name = "UserRejectedError";
+      throw cancelError;
+    }
+    throw error;
+  }
 
   try {
     await window.ethereum.request({
