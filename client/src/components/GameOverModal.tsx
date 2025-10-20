@@ -17,6 +17,7 @@ interface GameOverModalProps {
   isSavingScore?: boolean;
   onRetry: () => void;
   onSubmitScore?: () => void;
+  onClose?: () => void;
 }
 
 export function GameOverModal({
