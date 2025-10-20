@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import { WalletConnectCard } from "@/components/WalletConnectCard";
 import { NetworkBadge } from "@/components/NetworkBadge";
 import { TransactionModal } from "@/components/TransactionModal";
@@ -6,6 +7,8 @@ import { GameControls } from "@/components/GameControls";
 import { ScoreDisplay } from "@/components/ScoreDisplay";
 import { GameOverModal } from "@/components/GameOverModal";
 import { Toaster } from "@/components/ui/toaster";
+import { Button } from "@/components/ui/button";
+import { TrendingUp } from "lucide-react";
 import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
 import { connectWallet, saveScoreToBlockchain, getExplorerUrl } from "@/lib/web3";
