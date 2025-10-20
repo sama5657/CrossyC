@@ -47,7 +47,6 @@ export default function Game() {
 
   const handleConnectWallet = async () => {
     setWalletState((prev) => ({ ...prev, isConnecting: true }));
-    setWalletError(undefined);
 
     try {
       const address = await connectWallet();
@@ -72,7 +71,12 @@ export default function Game() {
         }
       }
 
-      setWalletError(errorMessage);
+      toast({
+        title: "Wallet Connection Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
       setWalletState({
         isConnected: false,
         isConnecting: false,
