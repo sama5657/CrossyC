@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Game() {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [walletState, setWalletState] = useState<WalletState>({
     isConnected: false,
