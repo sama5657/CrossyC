@@ -14,7 +14,9 @@ interface GameOverModalProps {
   score: number;
   transactionHash?: string;
   explorerUrl?: string;
+  isSavingScore?: boolean;
   onRetry: () => void;
+  onSubmitScore?: () => void;
 }
 
 export function GameOverModal({
