@@ -5,9 +5,11 @@ import { TransactionModal } from "@/components/TransactionModal";
 import { GameControls } from "@/components/GameControls";
 import { ScoreDisplay } from "@/components/ScoreDisplay";
 import { GameOverModal } from "@/components/GameOverModal";
+import { Toaster } from "@/components/ui/toaster";
 import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
 import { connectWallet, saveScoreToBlockchain, getExplorerUrl } from "@/lib/web3";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Game() {
   const canvasRef = useRef<HTMLDivElement>(null);
