@@ -24,7 +24,9 @@ export function GameOverModal({
   score,
   transactionHash,
   explorerUrl,
+  isSavingScore,
   onRetry,
+  onSubmitScore,
 }: GameOverModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
@@ -61,24 +63,49 @@ export function GameOverModal({
         )}
 
         <DialogFooter className="sm:justify-center gap-2 flex-col sm:flex-row">
-          <Button
-            variant="destructive"
-            onClick={onRetry}
-            className="text-xs font-mono w-full sm:w-auto"
-            data-testid="button-retry"
-          >
-            Retry
-          </Button>
-          {explorerUrl && transactionHash && (
-            <Button
-              variant="outline"
-              onClick={() => window.open(explorerUrl, "_blank")}
-              className="text-xs font-mono w-full sm:w-auto"
-              data-testid="button-view-score-explorer"
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              View on Explorer
-            </Button>
+          {!transactionHash ? (
+            <>
+              <Button
+                variant="default"
+                onClick={onSubmitScore}
+                disabled={isSavingScore}
+                className="text-xs font-mono w-full sm:w-auto"
+                data-testid="button-submit-score"
+              >
+                {isSavingScore ? "Saving..." : "Submit Score On-Chain"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onRetry}
+                disabled={isSavingScore}
+                className="text-xs font-mono w-full sm:w-auto"
+                data-testid="button-retry"
+              >
+                Play Again
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="destructive"
+                onClick={onRetry}
+                className="text-xs font-mono w-full sm:w-auto"
+                data-testid="button-retry"
+              >
+                Retry
+              </Button>
+              {explorerUrl && (
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(explorerUrl, "_blank")}
+                  className="text-xs font-mono w-full sm:w-auto"
+                  data-testid="button-view-score-explorer"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View on Explorer
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>
