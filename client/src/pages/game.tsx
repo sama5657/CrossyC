@@ -153,11 +153,6 @@ export default function Game() {
     }
   };
 
-  useEffect(() => {
-    if (gameOver && walletState.isConnected && score > 0) {
-      handleSaveScore();
-    }
-  }, [gameOver]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-background">
