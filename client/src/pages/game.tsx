@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Game() {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   const [walletState, setWalletState] = useState<WalletState>({
     isConnected: false,
     isConnecting: false,
@@ -23,7 +24,6 @@ export default function Game() {
     status: "idle",
   });
   const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [walletError, setWalletError] = useState<string>();
 
   const gameInstanceRef = useRef<any>(null);
 
