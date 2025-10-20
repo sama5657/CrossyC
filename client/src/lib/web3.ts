@@ -155,5 +155,6 @@ export function getExplorerUrl(hash: string): string {
 declare global {
   interface Window {
     ethereum?: any;
+    THREE?: any;
   }
 }
