@@ -35,13 +35,6 @@ export const SCORE_STORE_ABI = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "_player", type: "address" }],
-    name: "getScore",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
     anonymous: false,
     inputs: [
       { indexed: true, internalType: "address", name: "player", type: "address" },
@@ -49,6 +42,20 @@ export const SCORE_STORE_ABI = [
     ],
     name: "ScoreSaved",
     type: "event",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_player", type: "address" }],
+    name: "getScore",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    name: "scores",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
   },
 ] as const;
 
