@@ -8,6 +8,7 @@ interface WalletConnectCardProps {
   isConnecting: boolean;
   smartAccountAddress?: string;
   onConnect: () => void;
+  error?: string;
 }
 
 export function WalletConnectCard({
@@ -15,6 +16,7 @@ export function WalletConnectCard({
   isConnecting,
   smartAccountAddress,
   onConnect,
+  error,
 }: WalletConnectCardProps) {
   const [copied, setCopied] = useState(false);
 
@@ -36,16 +38,23 @@ export function WalletConnectCard({
       data-testid="card-wallet"
     >
       {!isConnected ? (
-        <Button
-          onClick={onConnect}
-          disabled={isConnecting}
-          variant="default"
-          className="text-xs h-auto py-3 px-4 font-mono"
-          data-testid="button-connect-wallet"
-        >
-          <Wallet className="mr-2 h-4 w-4" />
-          {isConnecting ? "Connecting..." : "Connect Wallet"}
-        </Button>
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={onConnect}
+            disabled={isConnecting}
+            variant="default"
+            className="text-xs h-auto py-3 px-4 font-mono"
+            data-testid="button-connect-wallet"
+          >
+            <Wallet className="mr-2 h-4 w-4" />
+            {isConnecting ? "Connecting..." : "Connect Wallet"}
+          </Button>
+          {error && (
+            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/30" data-testid="error-message">
+              {error}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col gap-2" data-testid="container-wallet-connected">
           <div className="flex items-center gap-2">
