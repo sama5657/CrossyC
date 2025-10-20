@@ -21,6 +21,7 @@ export default function Game() {
     status: "idle",
   });
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [walletError, setWalletError] = useState<string>();
 
   const gameInstanceRef = useRef<any>(null);
 
@@ -44,7 +45,8 @@ export default function Game() {
 
   const handleConnectWallet = async () => {
     setWalletState((prev) => ({ ...prev, isConnecting: true }));
-    
+    setWalletError(undefined);
+
     try {
       const address = await connectWallet();
       setWalletState({
@@ -54,7 +56,20 @@ export default function Game() {
         chainId: 10143,
       });
     } catch (error) {
+      let errorMessage = "Failed to connect wallet";
+
+      if (error instanceof Error) {
+        if (error.message.includes("MetaMask not installed")) {
+          errorMessage = "MetaMask not installed. Please install MetaMask browser extension to play.";
+        } else if (error.message.includes("User rejected")) {
+          errorMessage = "Connection request was rejected.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       console.error("Failed to connect wallet:", error);
+      setWalletError(errorMessage);
       setWalletState({
         isConnected: false,
         isConnecting: false,
