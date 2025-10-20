@@ -119,22 +119,31 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     throw new Error("Contract not deployed. Please deploy the ScoreStore contract and set VITE_CONTRACT_ADDRESS environment variable.");
   }
 
-  const walletClient = createWalletClient({
-    chain: MONAD_TESTNET,
-    transport: custom(window.ethereum),
-  });
+  try {
+    const walletClient = createWalletClient({
+      chain: MONAD_TESTNET,
+      transport: custom(window.ethereum),
+    });
 
-  const [account] = await walletClient.getAddresses();
+    const [account] = await walletClient.getAddresses();
 
-  const hash = await walletClient.writeContract({
-    address: CONTRACT_ADDRESS,
-    abi: SCORE_STORE_ABI,
-    functionName: "saveScore",
-    args: [BigInt(score)],
-    account,
-  });
+    const hash = await walletClient.writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: SCORE_STORE_ABI,
+      functionName: "saveScore",
+      args: [BigInt(score)],
+      account,
+    });
 
-  return hash;
+    return hash;
+  } catch (error: any) {
+    if (error?.code === 4001) {
+      const userRejectionError = new Error("User rejected");
+      userRejectionError.code = 4001;
+      throw userRejectionError;
+    }
+    throw error;
+  }
 }
 
 export async function getPlayerScore(playerAddress: Address): Promise<number> {
