@@ -190,7 +190,7 @@ export default function Game() {
         onClick={() => setLocation("/leaderboard")}
         variant="outline"
         size="sm"
-        className="fixed top-8 right-[200px] z-40 text-xs"
+        className="fixed top-8 right-8 z-40 text-xs"
         data-testid="button-view-leaderboard"
       >
         <TrendingUp className="mr-2 h-4 w-4" />
