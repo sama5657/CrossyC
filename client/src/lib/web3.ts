@@ -172,56 +172,78 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
   try {
     // keccak256("ScoreSaved(address,uint256)") = 0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5
     const SCORE_SAVED_TOPIC = "0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5";
+    const playerScores = new Map<string, { score: number; blockNumber: number }>();
 
-    const logsResponse = await fetch("https://testnet-rpc.monad.xyz/", {
+    // Get latest block number first
+    const blockResponse = await fetch("https://testnet-rpc.monad.xyz/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        method: "eth_getLogs",
-        params: [
-          {
-            address: CONTRACT_ADDRESS,
-            topics: [SCORE_SAVED_TOPIC],
-            fromBlock: "0x0",
-          },
-        ],
+        method: "eth_blockNumber",
+        params: [],
         id: 1,
       }),
     });
 
-    if (!logsResponse.ok) {
-      console.error("Failed to fetch logs:", logsResponse.status);
-      return [];
-    }
+    const blockData = await blockResponse.json();
+    const latestBlockNumber = parseInt(blockData.result || "0", 16);
 
-    const data = await logsResponse.json();
+    // Fetch logs in chunks of 5000 blocks to avoid RPC limits
+    const chunkSize = 5000;
 
-    if (!data.result || !Array.isArray(data.result)) {
-      return [];
-    }
+    for (let fromBlock = 0; fromBlock <= latestBlockNumber; fromBlock += chunkSize) {
+      const toBlock = Math.min(fromBlock + chunkSize - 1, latestBlockNumber);
 
-    const playerScores = new Map<string, { score: number; blockNumber: number }>();
+      const logsResponse = await fetch("https://testnet-rpc.monad.xyz/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_getLogs",
+          params: [
+            {
+              address: CONTRACT_ADDRESS,
+              topics: [SCORE_SAVED_TOPIC],
+              fromBlock: `0x${fromBlock.toString(16)}`,
+              toBlock: `0x${toBlock.toString(16)}`,
+            },
+          ],
+          id: 1,
+        }),
+      });
 
-    // Parse logs and get latest score for each player
-    for (const log of data.result) {
-      if (!log.topics || log.topics.length < 2 || !log.data) continue;
-
-      try {
-        const player = `0x${log.topics[1].slice(-40)}` as Address;
-        const scoreHex = log.data;
-        const score = parseInt(scoreHex, 16);
-        const blockNumber = parseInt(log.blockNumber, 16);
-
-        if (isNaN(score) || isNaN(blockNumber)) continue;
-
-        const existing = playerScores.get(player);
-        if (!existing || blockNumber > existing.blockNumber) {
-          playerScores.set(player, { score, blockNumber });
-        }
-      } catch (e) {
-        console.error("Error parsing log:", e);
+      if (!logsResponse.ok) {
+        console.error("Failed to fetch logs for block range", fromBlock, "-", toBlock);
         continue;
+      }
+
+      const data = await logsResponse.json();
+
+      if (!data.result || !Array.isArray(data.result)) {
+        continue;
+      }
+
+      // Parse logs and get latest score for each player
+      for (const log of data.result) {
+        if (!log.topics || log.topics.length < 2 || !log.data) continue;
+
+        try {
+          const player = `0x${log.topics[1].slice(-40)}` as Address;
+          const scoreHex = log.data;
+          const score = parseInt(scoreHex, 16);
+          const blockNumber = parseInt(log.blockNumber, 16);
+
+          if (isNaN(score) || isNaN(blockNumber)) continue;
+
+          const existing = playerScores.get(player);
+          if (!existing || blockNumber > existing.blockNumber) {
+            playerScores.set(player, { score, blockNumber });
+          }
+        } catch (e) {
+          console.error("Error parsing log:", e);
+          continue;
+        }
       }
     }
 
