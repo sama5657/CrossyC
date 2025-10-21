@@ -57,17 +57,6 @@ export function WalletConnectCard({
               <span className="text-xs font-mono text-foreground" data-testid="text-wallet-address">
                 {truncateAddress(smartAccountAddress)}
               </span>
-              <button
-                onClick={handleCopy}
-                className="p-1 rounded hover:bg-accent transition-colors"
-                data-testid="button-copy-address"
-              >
-                {copied ? (
-                  <Check className="h-3 w-3 text-primary" />
-                ) : (
-                  <Copy className="h-3 w-3 text-muted-foreground" />
-                )}
-              </button>
             </div>
           )}
         </div>
