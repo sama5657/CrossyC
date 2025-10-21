@@ -644,6 +644,9 @@ export function initializeGame(
 
   const retry = () => {
     lanes.forEach((lane: any) => scene.remove(lane.mesh));
+    roadAudio.pause();
+    roadAudio.currentTime = 0;
+    isRoadAudioPlaying = false;
     initialiseValues();
   };
 
