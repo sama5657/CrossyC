@@ -66,7 +66,7 @@ export default function Leaderboard() {
               <TrendingUp className="h-8 w-8" />
               Leaderboard
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Top 20 Crossy Chain Scores</p>
+            <p className="text-sm text-muted-foreground mt-1">Top 20 Crossy Road Scores</p>
           </div>
         </div>
 
