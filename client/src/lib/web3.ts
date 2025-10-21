@@ -170,10 +170,10 @@ export interface LeaderboardEntry {
 
 export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
   try {
-    // keccak256("ScoreSaved(address,uint256)")
-    const SCORE_SAVED_TOPIC = "0x1a6f1b83a7c0b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6";
+    // keccak256("ScoreSaved(address,uint256)") = 0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5
+    const SCORE_SAVED_TOPIC = "0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5";
 
-    const response = await fetch("https://testnet-rpc.monad.xyz/", {
+    const logsResponse = await fetch("https://testnet-rpc.monad.xyz/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -190,7 +190,12 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
       }),
     });
 
-    const data = await response.json();
+    if (!logsResponse.ok) {
+      console.error("Failed to fetch logs:", logsResponse.status);
+      return [];
+    }
+
+    const data = await logsResponse.json();
 
     if (!data.result || !Array.isArray(data.result)) {
       return [];
@@ -200,16 +205,23 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
 
     // Parse logs and get latest score for each player
     for (const log of data.result) {
-      if (!log.topics || log.topics.length < 2) continue;
+      if (!log.topics || log.topics.length < 2 || !log.data) continue;
 
-      const player = `0x${log.topics[1].slice(-40)}` as Address;
-      const scoreHex = log.data;
-      const score = parseInt(scoreHex, 16);
-      const blockNumber = parseInt(log.blockNumber, 16);
+      try {
+        const player = `0x${log.topics[1].slice(-40)}` as Address;
+        const scoreHex = log.data;
+        const score = parseInt(scoreHex, 16);
+        const blockNumber = parseInt(log.blockNumber, 16);
 
-      const existing = playerScores.get(player);
-      if (!existing || blockNumber > existing.blockNumber) {
-        playerScores.set(player, { score, blockNumber });
+        if (isNaN(score) || isNaN(blockNumber)) continue;
+
+        const existing = playerScores.get(player);
+        if (!existing || blockNumber > existing.blockNumber) {
+          playerScores.set(player, { score, blockNumber });
+        }
+      } catch (e) {
+        console.error("Error parsing log:", e);
+        continue;
       }
     }
 
