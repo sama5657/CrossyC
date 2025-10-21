@@ -495,6 +495,12 @@ export function initializeGame(
       if (!stepStartTimestamp) startMoving = true;
     }
     moves.push(direction);
+
+    // Play jump sound
+    jumpAudio.currentTime = 0;
+    jumpAudio.play().catch(() => {
+      // Silently handle autoplay restrictions
+    });
   }
 
   function animate(timestamp: number) {
