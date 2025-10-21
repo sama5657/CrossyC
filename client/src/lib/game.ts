@@ -613,10 +613,19 @@ export function initializeGame(
   };
 
   window.addEventListener("keydown", (event) => {
-    if (event.keyCode == 38) move("forward");
-    else if (event.keyCode == 40) move("backward");
-    else if (event.keyCode == 37) move("left");
-    else if (event.keyCode == 39) move("right");
+    const key = event.key.toLowerCase();
+
+    // Arrow keys
+    if (event.keyCode === 38 || key === "arrowup") move("forward");
+    else if (event.keyCode === 40 || key === "arrowdown") move("backward");
+    else if (event.keyCode === 37 || key === "arrowleft") move("left");
+    else if (event.keyCode === 39 || key === "arrowright") move("right");
+
+    // WASD keys
+    else if (key === "w") move("forward");
+    else if (key === "s") move("backward");
+    else if (key === "a") move("left");
+    else if (key === "d") move("right");
   });
 
   return {
