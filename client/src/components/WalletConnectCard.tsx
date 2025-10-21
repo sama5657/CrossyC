@@ -59,7 +59,7 @@ export function WalletConnectCard({
               </span>
               <button
                 onClick={handleCopy}
-                className="hover-elevate active-elevate-2 p-1 rounded"
+                className="p-1 rounded hover:bg-accent transition-colors"
                 data-testid="button-copy-address"
               >
                 {copied ? (
