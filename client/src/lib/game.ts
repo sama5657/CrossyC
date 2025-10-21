@@ -20,6 +20,15 @@ export function initializeGame(
     return null;
   }
 
+  // Initialize audio
+  const jumpAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2F7475201ea65542a18ce807cf0d4c5864?alt=media&token=58705ae3-5c1e-4f3e-ad41-9ea48df6ffb2&apiKey=6ccb46757eb14f64852d56e691f250e2");
+  jumpAudio.volume = 0.5;
+  const roadAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2Fb118fa664daf4256bbea53e0dee7dfd5?alt=media&token=a9fa320c-002d-4a8d-9159-c437fe52bee2&apiKey=6ccb46757eb14f64852d56e691f250e2");
+  roadAudio.volume = 0.3;
+  roadAudio.loop = true;
+  let isRoadAudioPlaying = false;
+  let lastVehicleCollisionTime = 0;
+
   const scene = new THREE.Scene();
 
   const distance = 500;
