@@ -170,6 +170,9 @@ export interface LeaderboardEntry {
 
 export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
   try {
+    // keccak256("ScoreSaved(address,uint256)")
+    const SCORE_SAVED_TOPIC = "0x1a6f1b83a7c0b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6";
+
     const response = await fetch("https://testnet-rpc.monad.xyz/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -179,9 +182,7 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
         params: [
           {
             address: CONTRACT_ADDRESS,
-            topics: [
-              "0x" + Array(64).fill(0).join(""), // ScoreSaved event selector
-            ],
+            topics: [SCORE_SAVED_TOPIC],
             fromBlock: "0x0",
           },
         ],
@@ -191,17 +192,18 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
 
     const data = await response.json();
 
-    if (!data.result) {
+    if (!data.result || !Array.isArray(data.result)) {
       return [];
     }
 
-    const entries: LeaderboardEntry[] = [];
     const playerScores = new Map<string, { score: number; blockNumber: number }>();
 
     // Parse logs and get latest score for each player
     for (const log of data.result) {
+      if (!log.topics || log.topics.length < 2) continue;
+
       const player = `0x${log.topics[1].slice(-40)}` as Address;
-      const scoreHex = log.data.slice(0, 66);
+      const scoreHex = log.data;
       const score = parseInt(scoreHex, 16);
       const blockNumber = parseInt(log.blockNumber, 16);
 
@@ -220,34 +222,12 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
       .sort((a, b) => b.score - a.score)
       .slice(0, 20); // Top 20
 
-    // Get block timestamps for each score
-    for (let i = 0; i < sorted.length; i++) {
-      const player = sorted[i].player;
-      const blockResponse = await fetch("https://testnet-rpc.monad.xyz/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_call",
-          params: [
-            {
-              to: CONTRACT_ADDRESS,
-              data: `0x2a086c84${player.slice(2)}`, // getScore(address) selector
-            },
-            "latest",
-          ],
-          id: 1,
-        }),
-      });
-
-      // Use current timestamp as fallback since we can't easily get block timestamp
-      entries.push({
-        rank: i + 1,
-        player,
-        score: sorted[i].score,
-        timestamp: Math.floor(Date.now() / 1000),
-      });
-    }
+    const entries: LeaderboardEntry[] = sorted.map((entry, index) => ({
+      rank: index + 1,
+      player: entry.player,
+      score: entry.score,
+      timestamp: Math.floor(Date.now() / 1000),
+    }));
 
     return entries;
   } catch (error) {
