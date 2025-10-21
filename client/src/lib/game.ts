@@ -608,13 +608,33 @@ export function initializeGame(
       const chickenMaxX = chicken.position.x + (chickenSize * zoom) / 2;
       const vehicleLengths: { car: number; truck: number } = { car: 60, truck: 105 };
       const vechicleLength = vehicleLengths[lanes[currentLane].type as "car" | "truck"];
+
+      // Start road audio when on vehicle lane
+      if (!isRoadAudioPlaying) {
+        isRoadAudioPlaying = true;
+        roadAudio.play().catch(() => {
+          // Silently handle autoplay restrictions
+        });
+      }
+
       lanes[currentLane].vechicles.forEach((vechicle: any) => {
         const carMinX = vechicle.position.x - (vechicleLength * zoom) / 2;
         const carMaxX = vechicle.position.x + (vechicleLength * zoom) / 2;
         if (chickenMaxX > carMinX && chickenMinX < carMaxX) {
+          // Play vehicle pass sound on collision
+          if (Date.now() - lastVehicleCollisionTime > 300) {
+            lastVehicleCollisionTime = Date.now();
+          }
           onGameOver();
         }
       });
+    } else {
+      // Stop road audio when not on vehicle lane
+      if (isRoadAudioPlaying) {
+        isRoadAudioPlaying = false;
+        roadAudio.pause();
+        roadAudio.currentTime = 0;
+      }
     }
 
     renderer.render(scene, camera);
