@@ -14,6 +14,7 @@ import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
 import { connectWallet, saveScoreToBlockchain, getExplorerUrl, getCurrentSmartAccountAddress } from "@/lib/web3";
 import { useToast } from "@/hooks/use-toast";
+import { useBlockchainNotifications } from "@/hooks/use-blockchain-notifications";
 import type { Address } from "viem";
 
 export default function Game() {
