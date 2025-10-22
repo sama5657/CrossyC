@@ -26,6 +26,8 @@ export function initializeGame(
   const roadAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2Fb118fa664daf4256bbea53e0dee7dfd5?alt=media&token=a9fa320c-002d-4a8d-9159-c437fe52bee2&apiKey=6ccb46757eb14f64852d56e691f250e2");
   roadAudio.volume = 0.3;
   roadAudio.loop = true;
+  const hitAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2Fca415679cca74802adb4fd119aef6278?alt=media&token=9244ec1b-e0d4-4ccc-ace7-5c6d01171376&apiKey=6ccb46757eb14f64852d56e691f250e2");
+  hitAudio.volume = 0.7;
   let isRoadAudioPlaying = false;
   let lastVehicleCollisionTime = 0;
 
