@@ -58,13 +58,29 @@ export function WalletBalanceCard({ address, label = 'Wallet' }: WalletBalanceCa
   const { data: nativeBalance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery<NativeBalance>({
     queryKey: ['balance', address],
     queryFn: async () => {
-      const balance = await publicClient.getBalance({ address: address as Address });
-      return {
-        address,
-        received: '0',
-        sent: '0',
-        balance: balance.toString(),
-      };
+      try {
+        const response = await fetch(`/api/balance/${address}`);
+        if (!response.ok) {
+          console.warn('Envio balance fetch failed, falling back to RPC');
+          const balance = await publicClient.getBalance({ address: address as Address });
+          return {
+            address,
+            received: '0',
+            sent: '0',
+            balance: balance.toString(),
+          };
+        }
+        return response.json();
+      } catch (error) {
+        console.warn('Failed to fetch balance from Envio:', error);
+        const balance = await publicClient.getBalance({ address: address as Address });
+        return {
+          address,
+          received: '0',
+          sent: '0',
+          balance: balance.toString(),
+        };
+      }
     },
     enabled: !!address,
     staleTime: 5000,
@@ -73,16 +89,40 @@ export function WalletBalanceCard({ address, label = 'Wallet' }: WalletBalanceCa
 
   const { data: transfers, isLoading: transfersLoading, refetch: refetchTransfers } = useQuery<TokenTransfer[]>({
     queryKey: ['transfers', address],
-    queryFn: async () => [],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/transfers/${address}?limit=50`);
+        if (!response.ok) {
+          return [];
+        }
+        return response.json();
+      } catch (error) {
+        console.warn('Failed to fetch transfers from Envio:', error);
+        return [];
+      }
+    },
     enabled: !!address,
     staleTime: 5000,
+    refetchInterval: 30000,
   });
 
   const { data: tokenBalances, isLoading: tokensLoading, refetch: refetchTokens } = useQuery<Record<string, TokenBalance>>({
     queryKey: ['token-balances', address],
-    queryFn: async () => ({}),
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/token-balances/${address}`);
+        if (!response.ok) {
+          return {};
+        }
+        return response.json();
+      } catch (error) {
+        console.warn('Failed to fetch token balances from Envio:', error);
+        return {};
+      }
+    },
     enabled: !!address,
     staleTime: 5000,
+    refetchInterval: 30000,
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -220,7 +260,7 @@ export function WalletBalanceCard({ address, label = 'Wallet' }: WalletBalanceCa
         {/* Balance Info */}
         <div className="pt-2 border-t border-purple-500/20">
           <div className="flex items-center justify-center text-[10px] text-purple-400/60">
-            <span>MON Balance via RPC</span>
+            <span>Powered by Envio HyperSync</span>
           </div>
         </div>
       </CardContent>

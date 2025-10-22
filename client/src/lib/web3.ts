@@ -70,7 +70,17 @@ export const SCORE_STORE_ABI = [
 
 const MONAD_RPC_URL = import.meta.env.VITE_MONAD_RPC || "https://rpc.ankr.com/monad_testnet";
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || "";
-const BUNDLER_URL = `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
+// Validate Alchemy API key on init
+if (ALCHEMY_API_KEY) {
+  console.log("Alchemy API Key loaded:", ALCHEMY_API_KEY.substring(0, 8) + "...");
+} else {
+  console.warn("VITE_ALCHEMY_API_KEY not set - Smart Account transactions will fail");
+}
+
+const BUNDLER_URL = ALCHEMY_API_KEY
+  ? `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  : "";
 
 export const publicClient = createPublicClient({
   chain: MONAD_TESTNET,
@@ -192,9 +202,14 @@ async function saveScoreViaSmartAccount(
     throw new Error("Smart Account not initialized");
   }
 
-  console.log("Attempting Smart Account transaction via bundler...");
-  console.log("Smart Account Address:", currentSmartAccountAddress);
-  console.log("Score:", score);
+  if (!BUNDLER_URL) {
+    throw new Error("Bundler not configured");
+  }
+
+  console.log("🚀 Starting Smart Account transaction...");
+  console.log("   Smart Account:", currentSmartAccountAddress);
+  console.log("   Bundler:", BUNDLER_URL.substring(0, 50) + "...");
+  console.log("   Score:", score);
 
   const startTime = Date.now();
   let progressInterval: any = null;
@@ -203,21 +218,30 @@ async function saveScoreViaSmartAccount(
     onProgress("Preparing Smart Account transaction...", 0);
     progressInterval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      onProgress(`Processing Smart Account transaction... (${elapsed}s)`, elapsed);
+      onProgress(`Processing Smart Account... (${elapsed}s)`, elapsed);
     }, 1000);
   }
 
   try {
+    // Create bundler client with proper configuration
+    console.log("Creating bundler client...");
     const bundlerClient = createBundlerClient({
       client: publicClient,
-      transport: http(BUNDLER_URL),
+      transport: http(BUNDLER_URL, {
+        timeout: 30000, // 30 second timeout
+        retryCount: 1,
+        retryDelay: 100,
+      }),
     });
 
     if (onProgress) {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      onProgress("Sending transaction to Alchemy bundler...", elapsed);
+      onProgress("Submitting to Alchemy bundler...", elapsed);
     }
 
+    console.log("Submitting user operation...");
+
+    // Submit the user operation
     const userOpHash = await bundlerClient.sendUserOperation({
       account: currentSmartAccount,
       calls: [
@@ -230,38 +254,79 @@ async function saveScoreViaSmartAccount(
       ],
     });
 
-    console.log("User Operation Hash:", userOpHash);
+    console.log("✅ User operation sent:", userOpHash);
 
     if (onProgress) {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      onProgress("Waiting for transaction confirmation...", elapsed);
+      onProgress("Waiting for confirmation...", elapsed);
     }
 
-    const receipt = await withTimeout(
-      bundlerClient.waitForUserOperationReceipt({
-        hash: userOpHash,
-      }),
-      30000,
-      "Smart Account transaction timed out after 30 seconds"
-    );
+    // Wait for the receipt with polling
+    console.log("Waiting for receipt...");
+    const maxWaitTime = 30000; // 30 seconds max
+    const pollInterval = 2000; // Poll every 2 seconds
+    const endTime = Date.now() + maxWaitTime;
+
+    let receipt = null;
+    while (Date.now() < endTime) {
+      try {
+        receipt = await bundlerClient.getUserOperationReceipt({
+          hash: userOpHash,
+        });
+
+        if (receipt) {
+          console.log("✅ Receipt received:", receipt);
+          break;
+        }
+      } catch (e: any) {
+        // Receipt not ready yet, continue polling
+        if (!e?.message?.includes("not found")) {
+          console.warn("Receipt check error:", e?.message);
+        }
+      }
+
+      if (!receipt) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      }
+
+      if (onProgress && receipt) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        onProgress(`Confirming... (${elapsed}s)`, elapsed);
+      }
+    }
+
+    if (!receipt) {
+      throw new Error("Receipt not received after 30 seconds");
+    }
 
     if (progressInterval) {
       clearInterval(progressInterval);
     }
 
-    const txHash = receipt.receipt.transactionHash;
-    console.log("Smart Account transaction successful! Hash:", txHash);
+    const txHash = receipt.receipt?.transactionHash || userOpHash;
+    console.log("✅ Smart Account transaction complete:", txHash);
 
     if (onProgress) {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      onProgress(`Transaction confirmed! (${elapsed}s total)`, elapsed);
+      onProgress(`Success! (${elapsed}s)`, elapsed);
     }
 
     return { hash: txHash, method: "smartAccount" };
-  } catch (error) {
+  } catch (error: any) {
     if (progressInterval) {
       clearInterval(progressInterval);
     }
+
+    console.error("❌ Smart Account error:", error?.message || error);
+
+    // Log detailed error for debugging
+    if (error?.cause) {
+      console.error("Error cause:", error.cause);
+    }
+    if (error?.response) {
+      console.error("Error response:", error.response);
+    }
+
     throw error;
   }
 }
@@ -273,8 +338,22 @@ async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "
 
   console.log("Submitting score via EOA wallet:", currentEOAAddress);
   console.log("Score:", score);
+  console.log("Contract Address:", CONTRACT_ADDRESS);
 
-  const balance = await publicClient.getBalance({ address: currentEOAAddress });
+  // Check balance with timeout
+  let balance: bigint;
+  try {
+    balance = await withTimeout(
+      publicClient.getBalance({ address: currentEOAAddress }),
+      5000,
+      "Failed to check EOA balance"
+    );
+  } catch (balanceError: any) {
+    console.error("Error checking EOA balance:", balanceError);
+    // Continue anyway, let the transaction attempt and fail if no balance
+    balance = BigInt(0);
+  }
+
   console.log("EOA wallet balance:", balance.toString(), "wei");
 
   if (balance === BigInt(0)) {
@@ -284,17 +363,21 @@ async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "
   }
 
   console.log("Sending transaction from EOA wallet...");
-  
-  const txHash = await currentEOAWalletClient.writeContract({
-    address: CONTRACT_ADDRESS,
-    abi: SCORE_STORE_ABI,
-    functionName: "saveScore",
-    args: [BigInt(score)],
-  });
 
-  console.log("EOA transaction successful! Hash:", txHash);
+  try {
+    const txHash = await currentEOAWalletClient.writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: SCORE_STORE_ABI,
+      functionName: "saveScore",
+      args: [BigInt(score)],
+    });
 
-  return { hash: txHash, method: "eoa" };
+    console.log("EOA transaction successful! Hash:", txHash);
+    return { hash: txHash, method: "eoa" };
+  } catch (txError: any) {
+    console.error("EOA transaction error:", txError);
+    throw txError;
+  }
 }
 
 export async function saveScoreToBlockchain(
@@ -314,30 +397,89 @@ export async function saveScoreToBlockchain(
   }
 
   try {
-    if (currentSmartAccount && ALCHEMY_API_KEY) {
+    // Check if Smart Account and Bundler are properly configured
+    const hasSmartAccount = !!currentSmartAccount;
+    const hasValidBundler = ALCHEMY_API_KEY && ALCHEMY_API_KEY.length > 0 && BUNDLER_URL;
+
+    console.log("Transaction submission analysis:");
+    console.log("- Smart Account available:", hasSmartAccount);
+    console.log("- Bundler URL available:", hasValidBundler);
+    console.log("- Using Smart Account:", hasSmartAccount && hasValidBundler);
+
+    // Attempt Smart Account transaction only if both conditions are met
+    if (hasSmartAccount && hasValidBundler) {
+      console.log("Smart Account available, attempting transaction...");
+      console.log("API Key configured:", ALCHEMY_API_KEY.substring(0, 8) + "...");
+      console.log("Bundler URL:", BUNDLER_URL.substring(0, 40) + "...");
+
+      // Wrap Smart Account attempt with overall timeout
       try {
-        return await saveScoreViaSmartAccount(score, onProgress);
+        console.log("Attempting Smart Account transaction...");
+        const result = await saveScoreViaSmartAccount(score, onProgress);
+        console.log("✅ Smart Account transaction successful!");
+        return result;
       } catch (smartAccountError: any) {
-        console.warn("Smart Account transaction failed:", smartAccountError);
+        const errorMsg = smartAccountError?.message || String(smartAccountError);
+        console.error("Smart Account error:", errorMsg);
 
-        if (smartAccountError?.code === 4001 || smartAccountError?.message?.includes("User rejected")) {
-          console.log("User rejected Smart Account transaction");
-          throw smartAccountError;
+        // Check for specific error types
+        const isUserRejected = errorMsg.includes("User rejected") || smartAccountError?.code === 4001;
+        const isInsufficientFunds =
+          errorMsg.includes("INSUFFICIENT_FUNDS") ||
+          errorMsg.includes("insufficient funds") ||
+          errorMsg.includes("Insufficient funds");
+
+        // User rejected - don't fallback, fail immediately
+        if (isUserRejected) {
+          console.log("❌ User rejected the transaction");
+          const error = new Error("Transaction rejected by user");
+          (error as any).userFriendlyMessage = "You rejected the transaction. Please try again.";
+          throw error;
         }
 
-        if (smartAccountError?.name === "InsufficientFundsError" || smartAccountError?.message?.includes("INSUFFICIENT_FUNDS")) {
-          console.log("Insufficient funds in Smart Account");
-          throw smartAccountError;
+        // Insufficient funds - don't fallback, fail immediately
+        if (isInsufficientFunds) {
+          console.log("❌ Insufficient funds in Smart Account");
+          const error = new Error("Not enough funds to pay gas fees");
+          (error as any).userFriendlyMessage = "Your Smart Account doesn't have enough MON to pay gas fees. Please fund it with more MON.";
+          throw error;
         }
 
-        console.log("Falling back to EOA wallet...");
+        // For all other errors, try to fall back to EOA
+        console.log("ℹ️ Smart Account failed, trying fallback to EOA wallet...");
         if (onProgress) {
-          onProgress("Smart Account timed out, switching to EOA wallet...", 0);
+          onProgress("Attempting with EOA wallet...", 0);
         }
-        return await saveScoreViaEOA(score);
+
+        try {
+          const result = await saveScoreViaEOA(score);
+          console.log("✅ EOA transaction successful!");
+
+          // Mark that we used fallback
+          (result as any).usedFallback = true;
+
+          return result;
+        } catch (eoaError: any) {
+          console.error("❌ EOA fallback also failed:", eoaError?.message || eoaError);
+
+          // Combine error messages
+          const combined = new Error(
+            `Both Smart Account and EOA failed. ${eoaError?.message || "Transaction failed"}`
+          );
+          (combined as any).userFriendlyMessage =
+            "Unable to submit your score to the blockchain. Please check your network connection and try again.";
+
+          throw combined;
+        }
       }
     } else {
-      console.log("Smart Account not available, using EOA wallet");
+      console.log("Smart Account not fully configured, using EOA wallet directly");
+      if (!hasSmartAccount) {
+        console.log("Reason: Smart Account failed to initialize");
+      }
+      if (!hasValidBundler) {
+        console.log("Reason: Bundler not configured (missing VITE_ALCHEMY_API_KEY)");
+      }
       if (onProgress) {
         onProgress("Using EOA wallet for transaction...", 0);
       }
@@ -345,23 +487,23 @@ export async function saveScoreToBlockchain(
     }
   } catch (error: any) {
     console.error("Error saving score:", error);
-    
+
     if (error?.code === 4001 || error?.message?.includes("User rejected")) {
       const userRejectionError = new Error("User rejected");
       (userRejectionError as any).code = 4001;
       throw userRejectionError;
     }
-    
+
     if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
       throw error;
     }
-    
+
     if (error?.message?.includes("insufficient funds") || error?.message?.includes("exceeds balance")) {
       const fundError = new Error(`INSUFFICIENT_FUNDS:${currentEOAAddress}`);
       fundError.name = "InsufficientFundsError";
       throw fundError;
     }
-    
+
     throw error;
   }
 }

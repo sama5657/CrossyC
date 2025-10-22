@@ -14,6 +14,7 @@ import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
 import { connectWallet, saveScoreToBlockchain, getExplorerUrl, getCurrentSmartAccountAddress } from "@/lib/web3";
 import { useToast } from "@/hooks/use-toast";
+import { useBlockchainNotifications } from "@/hooks/use-blockchain-notifications";
 import type { Address } from "viem";
 
 export default function Game() {
@@ -33,22 +34,13 @@ export default function Game() {
 
   const gameInstanceRef = useRef<any>(null);
 
+  // Enable blockchain notifications for the Smart Account address
+  useBlockchainNotifications(walletState.smartAccountAddress as Address | undefined);
+
   useEffect(() => {
     if (!canvasRef.current || !walletState.isConnected) return;
 
     const initGame = async () => {
-      // Wait for Three.js to load
-      let attempts = 0;
-      while (!window.THREE && attempts < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-
-      if (!window.THREE) {
-        console.error("Three.js failed to load");
-        return;
-      }
-
       const game = initializeGame(
         canvasRef.current!,
         (newScore) => setScore(newScore),
