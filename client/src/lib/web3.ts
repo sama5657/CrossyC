@@ -393,10 +393,20 @@ export async function saveScoreToBlockchain(
   }
 
   try {
-    // Attempt Smart Account transaction if available and API key is set
-    if (currentSmartAccount && ALCHEMY_API_KEY && ALCHEMY_API_KEY.length > 0) {
+    // Check if Smart Account and Bundler are properly configured
+    const hasSmartAccount = !!currentSmartAccount;
+    const hasValidBundler = ALCHEMY_API_KEY && ALCHEMY_API_KEY.length > 0 && BUNDLER_URL;
+
+    console.log("Transaction submission analysis:");
+    console.log("- Smart Account available:", hasSmartAccount);
+    console.log("- Bundler URL available:", hasValidBundler);
+    console.log("- Using Smart Account:", hasSmartAccount && hasValidBundler);
+
+    // Attempt Smart Account transaction only if both conditions are met
+    if (hasSmartAccount && hasValidBundler) {
       console.log("Smart Account available, attempting transaction...");
       console.log("API Key configured:", ALCHEMY_API_KEY.substring(0, 8) + "...");
+      console.log("Bundler URL:", BUNDLER_URL.substring(0, 40) + "...");
 
       try {
         return await saveScoreViaSmartAccount(score, onProgress);
@@ -415,7 +425,7 @@ export async function saveScoreToBlockchain(
           throw smartAccountError;
         }
 
-        // For all other errors (timeout, network errors, etc), fall back to EOA
+        // For all other errors (timeout, network errors, bundler issues, etc), fall back to EOA
         console.log("Smart Account failed, falling back to EOA wallet...");
         if (onProgress) {
           onProgress("Smart Account unavailable, switching to EOA wallet...", 0);
@@ -429,8 +439,13 @@ export async function saveScoreToBlockchain(
         }
       }
     } else {
-      console.log("Smart Account not configured, using EOA wallet directly");
-      console.log("Smart Account exists:", !!currentSmartAccount, "API Key:", ALCHEMY_API_KEY ? "set" : "not set");
+      console.log("Smart Account not fully configured, using EOA wallet directly");
+      if (!hasSmartAccount) {
+        console.log("Reason: Smart Account failed to initialize");
+      }
+      if (!hasValidBundler) {
+        console.log("Reason: Bundler not configured (missing VITE_ALCHEMY_API_KEY)");
+      }
       if (onProgress) {
         onProgress("Using EOA wallet for transaction...", 0);
       }
