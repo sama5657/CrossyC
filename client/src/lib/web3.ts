@@ -38,7 +38,7 @@ export const MONAD_TESTNET = {
   },
 } as const;
 
-export const CONTRACT_ADDRESS = (import.meta.env.VITE_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000") as Address;
+export const CONTRACT_ADDRESS = (import.meta.env.VITE_CONTRACT_ADDRESS || "0x8c2b26d35c3c749ff1f4dc91c36a81b304ce36ee") as Address;
 
 export const SCORE_STORE_ABI = [
   {
@@ -73,7 +73,7 @@ export const SCORE_STORE_ABI = [
   },
 ] as const;
 
-const MONAD_RPC_URL = "https://testnet-rpc.monad.xyz";
+const MONAD_RPC_URL = import.meta.env.MONAD_RPC || "https://rpc.ankr.com/monad_testnet";
 
 export const publicClient = createPublicClient({
   chain: MONAD_TESTNET,
@@ -145,14 +145,14 @@ export async function connectWallet(): Promise<Address> {
       signer: { walletClient },
     });
 
-    const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY;
+    const alchemyApiKey = import.meta.env.VITE_ALCHEMY_API_KEY;
     
-    if (!pimlicoApiKey) {
-      throw new Error("VITE_PIMLICO_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
+    if (!alchemyApiKey) {
+      throw new Error("VITE_ALCHEMY_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
     }
 
-    const bundlerUrl = `https://api.pimlico.io/v2/10143/rpc?apikey=${pimlicoApiKey}`;
-    console.log("Using Pimlico bundler for Smart Accounts on Monad testnet");
+    const bundlerUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
+    console.log("Using Alchemy bundler for Smart Accounts on Monad testnet");
 
     currentBundlerClient = createBundlerClient({
       client: publicClient,

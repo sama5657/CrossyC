@@ -105,10 +105,11 @@ The application follows a retro arcade aesthetic:
 ## Network Details
 
 - **Network**: Monad Testnet
-- **RPC**: https://testnet-rpc.monad.xyz/
+- **RPC**: https://rpc.ankr.com/monad_testnet
 - **Chain ID**: 10143 (0x279f)
 - **Explorer**: https://testnet.monadexplorer.com/
 - **Currency**: MON (testnet)
+- **Bundler**: Alchemy (https://monad-testnet.g.alchemy.com)
 
 ## Running the Project
 
@@ -185,7 +186,8 @@ This project uses the **MetaMask Delegation Toolkit SDK** to implement ERC-4337 
 - **Netlify Configuration**: `netlify.toml` + `client/public/_redirects` for SPA routing
 - **Required Environment Variables**:
   - `VITE_CONTRACT_ADDRESS`: ScoreStore.sol contract address on Monad testnet
-  - `VITE_PIMLICO_API_KEY`: Free API key from https://dashboard.pimlico.io (required for bundler)
+  - `VITE_ALCHEMY_API_KEY`: Free API key from https://dashboard.alchemy.com (required for bundler)
+  - `MONAD_RPC`: Monad RPC URL (defaults to https://rpc.ankr.com/monad_testnet)
 - **Smart Contract**: Deploy to Monad testnet using Hardhat with deployer private key
 - **Gas Costs**: User pays gas for user operations (paymaster integration optional)
 - **Setup Guide**: See `SETUP.md` for complete setup instructions
