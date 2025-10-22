@@ -198,10 +198,137 @@ async function saveScoreViaSmartAccount(
   score: number,
   onProgress?: (stage: string, secondsElapsed: number) => void
 ): Promise<{ hash: string; method: "smartAccount" }> {
-  // Smart Account transactions via Alchemy bundler have compatibility issues
-  // Fall back to EOA instead of hanging
-  console.log("Smart Account via bundler is not reliably supported - using EOA instead");
-  throw new Error("Smart Account bundler unavailable - falling back to EOA");
+  if (!currentSmartAccount) {
+    throw new Error("Smart Account not initialized");
+  }
+
+  if (!BUNDLER_URL) {
+    throw new Error("Bundler not configured");
+  }
+
+  console.log("🚀 Starting Smart Account transaction...");
+  console.log("   Smart Account:", currentSmartAccountAddress);
+  console.log("   Bundler:", BUNDLER_URL.substring(0, 50) + "...");
+  console.log("   Score:", score);
+
+  const startTime = Date.now();
+  let progressInterval: any = null;
+
+  if (onProgress) {
+    onProgress("Preparing Smart Account transaction...", 0);
+    progressInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress(`Processing Smart Account... (${elapsed}s)`, elapsed);
+    }, 1000);
+  }
+
+  try {
+    // Create bundler client with proper configuration
+    console.log("Creating bundler client...");
+    const bundlerClient = createBundlerClient({
+      client: publicClient,
+      transport: http(BUNDLER_URL, {
+        timeout: 30000, // 30 second timeout
+        retryCount: 1,
+        retryDelay: 100,
+      }),
+    });
+
+    if (onProgress) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress("Submitting to Alchemy bundler...", elapsed);
+    }
+
+    console.log("Submitting user operation...");
+
+    // Submit the user operation
+    const userOpHash = await bundlerClient.sendUserOperation({
+      account: currentSmartAccount,
+      calls: [
+        {
+          to: CONTRACT_ADDRESS,
+          abi: SCORE_STORE_ABI,
+          functionName: "saveScore",
+          args: [BigInt(score)],
+        },
+      ],
+    });
+
+    console.log("✅ User operation sent:", userOpHash);
+
+    if (onProgress) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress("Waiting for confirmation...", elapsed);
+    }
+
+    // Wait for the receipt with polling
+    console.log("Waiting for receipt...");
+    const maxWaitTime = 30000; // 30 seconds max
+    const pollInterval = 2000; // Poll every 2 seconds
+    const endTime = Date.now() + maxWaitTime;
+
+    let receipt = null;
+    while (Date.now() < endTime) {
+      try {
+        receipt = await bundlerClient.getUserOperationReceipt({
+          hash: userOpHash,
+        });
+
+        if (receipt) {
+          console.log("✅ Receipt received:", receipt);
+          break;
+        }
+      } catch (e: any) {
+        // Receipt not ready yet, continue polling
+        if (!e?.message?.includes("not found")) {
+          console.warn("Receipt check error:", e?.message);
+        }
+      }
+
+      if (!receipt) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      }
+
+      if (onProgress && receipt) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        onProgress(`Confirming... (${elapsed}s)`, elapsed);
+      }
+    }
+
+    if (!receipt) {
+      throw new Error("Receipt not received after 30 seconds");
+    }
+
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    const txHash = receipt.receipt?.transactionHash || userOpHash;
+    console.log("✅ Smart Account transaction complete:", txHash);
+
+    if (onProgress) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress(`Success! (${elapsed}s)`, elapsed);
+    }
+
+    return { hash: txHash, method: "smartAccount" };
+  } catch (error: any) {
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    console.error("❌ Smart Account error:", error?.message || error);
+
+    // Log detailed error for debugging
+    if (error?.cause) {
+      console.error("Error cause:", error.cause);
+    }
+    if (error?.response) {
+      console.error("Error response:", error.response);
+    }
+
+    throw error;
+  }
 }
 
 async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "eoa" }> {
