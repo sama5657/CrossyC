@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
-import { connectWallet, saveScoreToBlockchain, getExplorerUrl, getTopScoresFromBlockchain } from "@/lib/web3";
+import { connectWallet, saveScoreToBlockchain, getExplorerUrl } from "@/lib/web3";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Game() {
