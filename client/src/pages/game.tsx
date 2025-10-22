@@ -135,12 +135,21 @@ export default function Game() {
     setTransactionData({ status: "pending" });
 
     try {
-      const txHash = await saveScoreToBlockchain(score);
+      const result = await saveScoreToBlockchain(score);
       setTransactionData({
         status: "success",
-        hash: txHash,
-        explorerUrl: getExplorerUrl(txHash),
+        hash: result.hash,
+        explorerUrl: getExplorerUrl(result.hash),
+        method: result.method,
       });
+
+      if (result.method === "eoa") {
+        toast({
+          title: "Fallback Used",
+          description: "Score saved via EOA wallet (Smart Account timed out)",
+          variant: "default",
+        });
+      }
     } catch (error: any) {
       let errorMessage = "Failed to save score on-chain";
       let isUserRejection = false;
