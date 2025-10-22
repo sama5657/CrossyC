@@ -408,8 +408,13 @@ export async function saveScoreToBlockchain(
       console.log("API Key configured:", ALCHEMY_API_KEY.substring(0, 8) + "...");
       console.log("Bundler URL:", BUNDLER_URL.substring(0, 40) + "...");
 
+      // Wrap Smart Account attempt with overall timeout
       try {
-        return await saveScoreViaSmartAccount(score, onProgress);
+        return await withTimeout(
+          saveScoreViaSmartAccount(score, onProgress),
+          25000,
+          "Smart Account transaction taking too long (>25s), falling back to EOA"
+        );
       } catch (smartAccountError: any) {
         console.error("Smart Account transaction failed:", smartAccountError?.message || smartAccountError);
 
