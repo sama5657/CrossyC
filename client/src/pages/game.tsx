@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { WalletConnectCard } from "@/components/WalletConnectCard";
+import { WalletBalanceCard } from "@/components/WalletBalanceCard";
 import { NetworkBadge } from "@/components/NetworkBadge";
 import { TransactionModal } from "@/components/TransactionModal";
 import { GameControls } from "@/components/GameControls";
@@ -13,6 +14,7 @@ import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
 import { connectWallet, saveScoreToBlockchain, getExplorerUrl } from "@/lib/web3";
 import { useToast } from "@/hooks/use-toast";
+import type { Address } from "viem";
 
 export default function Game() {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -215,6 +217,16 @@ export default function Game() {
         smartAccountAddress={walletState.smartAccountAddress}
         onConnect={handleConnectWallet}
       />
+
+      {/* Envio HyperSync - Smart Account Balance Display */}
+      {walletState.isConnected && walletState.smartAccountAddress && (
+        <div className="fixed bottom-32 left-8 z-40 w-80">
+          <WalletBalanceCard 
+            address={walletState.smartAccountAddress as Address} 
+            label="Smart Account"
+          />
+        </div>
+      )}
 
       <Toaster />
 

@@ -276,18 +276,12 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
       });
 
       console.log("User operation hash:", userOperationHash);
-      console.log("Waiting for bundler receipt (30s timeout)...");
+      console.log("Transaction submitted! Returning immediately for faster UX.");
 
-      const receipt = await currentBundlerClient.waitForUserOperationReceipt({
-        hash: userOperationHash,
-        timeout: 30_000,
-      });
-
-      console.log("Bundler transaction confirmed:", receipt.receipt.transactionHash);
-      if (hasPaymaster) {
-        console.log("Gas fees sponsored by Alchemy Gas Manager");
-      }
-      return receipt.receipt.transactionHash;
+      // Return the user operation hash immediately without waiting for confirmation
+      // This reduces loading time from 30s+ to instant
+      // The transaction will still be processed by the bundler
+      return userOperationHash;
     } catch (bundlerError: any) {
       console.warn("Bundler failed, falling back to direct transaction from EOA:", bundlerError.message);
       
@@ -307,14 +301,10 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
       });
 
       console.log("Direct transaction hash:", txHash);
-      console.log("Waiting for transaction confirmation...");
+      console.log("Transaction submitted! Returning immediately.");
 
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: txHash,
-        timeout: 30_000,
-      });
-
-      console.log("Direct transaction confirmed in block:", receipt.blockNumber);
+      // Return immediately without waiting for confirmation
+      // This significantly improves UX by reducing wait time
       return txHash;
     }
   } catch (error: any) {
