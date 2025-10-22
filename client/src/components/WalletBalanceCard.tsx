@@ -260,7 +260,7 @@ export function WalletBalanceCard({ address, label = 'Wallet' }: WalletBalanceCa
         {/* Balance Info */}
         <div className="pt-2 border-t border-purple-500/20">
           <div className="flex items-center justify-center text-[10px] text-purple-400/60">
-            <span>MON Balance via RPC</span>
+            <span>Powered by Envio HyperSync</span>
           </div>
         </div>
       </CardContent>
