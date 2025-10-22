@@ -168,33 +168,15 @@ export interface LeaderboardEntry {
   timestamp: number;
 }
 
-export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
-  try {
-    // keccak256("ScoreSaved(address,uint256)") = 0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5
-    const SCORE_SAVED_TOPIC = "0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5";
-    const playerScores = new Map<string, { score: number; blockNumber: number }>();
+async function fetchLogsWithRetry(
+  fromBlock: number,
+  toBlock: number,
+  maxRetries: number = 3
+): Promise<any[]> {
+  const SCORE_SAVED_TOPIC = "0xfe94b07f0f0fc9cac42c49cffaa7b7ecfcc7b97d12dc0c4b6d6b8a3b9c8d7e6f5";
 
-    // Get latest block number first
-    const blockResponse = await fetch("https://testnet-rpc.monad.xyz/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "eth_blockNumber",
-        params: [],
-        id: 1,
-      }),
-    });
-
-    const blockData = await blockResponse.json();
-    const latestBlockNumber = parseInt(blockData.result || "0", 16);
-
-    // Fetch logs in chunks of 5000 blocks to avoid RPC limits
-    const chunkSize = 5000;
-
-    for (let fromBlock = 0; fromBlock <= latestBlockNumber; fromBlock += chunkSize) {
-      const toBlock = Math.min(fromBlock + chunkSize - 1, latestBlockNumber);
-
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
       const logsResponse = await fetch("https://testnet-rpc.monad.xyz/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -214,18 +196,75 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
       });
 
       if (!logsResponse.ok) {
-        console.error("Failed to fetch logs for block range", fromBlock, "-", toBlock);
-        continue;
+        throw new Error(`HTTP ${logsResponse.status}`);
       }
 
       const data = await logsResponse.json();
 
-      if (!data.result || !Array.isArray(data.result)) {
-        continue;
+      // Check for RPC error
+      if (data.error) {
+        throw new Error(`RPC Error: ${data.error.message}`);
       }
 
+      if (!Array.isArray(data.result)) {
+        return [];
+      }
+
+      return data.result || [];
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries - 1;
+      const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+
+      if (isLastAttempt) {
+        console.error(
+          `Failed to fetch logs for block range ${fromBlock} - ${toBlock} after ${maxRetries} attempts:`,
+          error
+        );
+        return [];
+      }
+
+      console.warn(
+        `Attempt ${attempt + 1} failed for block range ${fromBlock} - ${toBlock}, retrying in ${delay}ms...`
+      );
+
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  return [];
+}
+
+export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
+  try {
+    const playerScores = new Map<string, { score: number; blockNumber: number }>();
+
+    // Get latest block number first
+    const blockResponse = await fetch("https://testnet-rpc.monad.xyz/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_blockNumber",
+        params: [],
+        id: 1,
+      }),
+    });
+
+    const blockData = await blockResponse.json();
+    const latestBlockNumber = parseInt(blockData.result || "0", 16);
+
+    // Fetch logs in smaller chunks of 2500 blocks with retry logic
+    // Smaller chunks reduce chances of hitting size/timeout limits
+    const chunkSize = 2500;
+
+    for (let fromBlock = 0; fromBlock <= latestBlockNumber; fromBlock += chunkSize) {
+      const toBlock = Math.min(fromBlock + chunkSize - 1, latestBlockNumber);
+
+      const logs = await fetchLogsWithRetry(fromBlock, toBlock);
+
       // Parse logs and get latest score for each player
-      for (const log of data.result) {
+      for (const log of logs) {
         if (!log.topics || log.topics.length < 2 || !log.data) continue;
 
         try {
