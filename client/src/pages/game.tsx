@@ -140,6 +140,9 @@ export default function Game() {
       if (error?.code === 4001 || error?.message?.includes("User rejected")) {
         errorMessage = "Transaction rejected. Your score was not saved.";
         isUserRejection = true;
+      } else if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
+        const address = error.message.split(":")[1] || walletState.smartAccountAddress;
+        errorMessage = `Your Smart Account needs MON tokens to pay for gas fees.\n\nSmart Account: ${address}\n\nPlease send some MON tokens from your MetaMask wallet to this Smart Account address, then try again.\n\nYou can get free testnet MON from the Monad faucet.`;
       } else if (error?.message?.includes("Contract not deployed")) {
         errorMessage = "Smart contract not deployed. Please deploy the contract first and set VITE_CONTRACT_ADDRESS in .env file.";
       } else if (error?.message?.includes("Lower score")) {

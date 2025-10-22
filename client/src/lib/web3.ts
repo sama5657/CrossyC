@@ -176,6 +176,15 @@ export async function isSmartAccountDeployed(address: Address): Promise<boolean>
   }
 }
 
+export async function getSmartAccountBalance(address: Address): Promise<bigint> {
+  try {
+    const balance = await publicClient.getBalance({ address });
+    return balance;
+  } catch {
+    return BigInt(0);
+  }
+}
+
 export async function saveScoreToBlockchain(score: number): Promise<string> {
   if (typeof window.ethereum === "undefined") {
     throw new Error("MetaMask not installed");
@@ -192,6 +201,15 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
   try {
     console.log("Submitting score via Smart Account:", currentSmartAccount.address);
     console.log("Score:", score);
+
+    const balance = await getSmartAccountBalance(currentSmartAccount.address);
+    console.log("Smart Account balance:", balance.toString(), "wei");
+
+    if (balance === BigInt(0)) {
+      const error = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
+      error.name = "InsufficientFundsError";
+      throw error;
+    }
 
     const callData = encodeFunctionData({
       abi: SCORE_STORE_ABI,
@@ -239,6 +257,16 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
       const userRejectionError = new Error("User rejected");
       (userRejectionError as any).code = 4001;
       throw userRejectionError;
+    }
+    
+    if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
+      throw error;
+    }
+    
+    if (error?.message?.includes("didn't pay prefund") || error?.message?.includes("AA21") || error?.message?.includes("insufficient funds")) {
+      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
+      fundError.name = "InsufficientFundsError";
+      throw fundError;
     }
     
     throw error;
