@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 import type { WalletState, TransactionData } from "@shared/schema";
 import { initializeGame } from "@/lib/game";
-import { connectWallet, saveScoreToBlockchain, getExplorerUrl } from "@/lib/web3";
+import { connectWallet, saveScoreToBlockchain, getExplorerUrl, getCurrentSmartAccountAddress } from "@/lib/web3";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "viem";
 
@@ -76,17 +76,20 @@ export default function Game() {
     setWalletState((prev) => ({ ...prev, isConnecting: true }));
 
     try {
-      const address = await connectWallet();
+      const eoaAddress = await connectWallet();
+      const smartAccountAddress = getCurrentSmartAccountAddress();
+      
       setWalletState({
         isConnected: true,
         isConnecting: false,
-        smartAccountAddress: address,
+        address: eoaAddress,
+        smartAccountAddress: smartAccountAddress || eoaAddress,
         chainId: 10143,
       });
 
       toast({
         title: "Wallet Connected!",
-        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)} on Monad Testnet.`,
+        description: `Connected to ${eoaAddress.slice(0, 6)}...${eoaAddress.slice(-4)} on Monad Testnet.${smartAccountAddress ? "\nSmart Account created!" : ""}`,
         duration: 5000,
       });
     } catch (error) {
@@ -214,6 +217,7 @@ export default function Game() {
         isConnected={walletState.isConnected}
         isConnecting={walletState.isConnecting}
         smartAccountAddress={walletState.smartAccountAddress}
+        eoaAddress={walletState.address}
         onConnect={handleConnectWallet}
       />
 
@@ -248,6 +252,7 @@ export default function Game() {
         hash={transactionData.hash}
         error={transactionData.error}
         explorerUrl={transactionData.explorerUrl}
+        method={transactionData.method}
         onClose={() => setShowTransactionModal(false)}
       />
 
