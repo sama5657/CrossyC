@@ -605,33 +605,52 @@ export function initializeGame(
       }
     }
 
+    // Check for collision in current lane
     if (lanes[currentLane].type === "car" || lanes[currentLane].type === "truck") {
       const chickenMinX = chicken.position.x - (chickenSize * zoom) / 2;
       const chickenMaxX = chicken.position.x + (chickenSize * zoom) / 2;
       const vehicleLengths: { car: number; truck: number } = { car: 60, truck: 105 };
       const vechicleLength = vehicleLengths[lanes[currentLane].type as "car" | "truck"];
 
-      // Start road audio when on vehicle lane
-      if (!isRoadAudioPlaying) {
-        isRoadAudioPlaying = true;
-        roadAudio.play().catch(() => {
-          // Silently handle autoplay restrictions
-        });
-      }
-
       lanes[currentLane].vechicles.forEach((vechicle: any) => {
         const carMinX = vechicle.position.x - (vechicleLength * zoom) / 2;
         const carMaxX = vechicle.position.x + (vechicleLength * zoom) / 2;
         if (chickenMaxX > carMinX && chickenMinX < carMaxX) {
-          // Play vehicle pass sound on collision
+          // Play hit sound on collision
+          hitAudio.currentTime = 0;
+          hitAudio.play().catch(() => {
+            // Silently handle autoplay restrictions
+          });
           if (Date.now() - lastVehicleCollisionTime > 300) {
             lastVehicleCollisionTime = Date.now();
           }
           onGameOver();
         }
       });
+    }
+
+    // Check if any vehicles are nearby in any lane (within 3 lanes distance)
+    let vehiclesNearby = false;
+    const nearbyLaneRange = 3;
+
+    for (let i = Math.max(0, currentLane - nearbyLaneRange); i <= Math.min(lanes.length - 1, currentLane + nearbyLaneRange); i++) {
+      if (lanes[i].type === "car" || lanes[i].type === "truck") {
+        if (lanes[i].vechicles && lanes[i].vechicles.length > 0) {
+          vehiclesNearby = true;
+          break;
+        }
+      }
+    }
+
+    // Play road audio when vehicles are nearby, stop otherwise
+    if (vehiclesNearby) {
+      if (!isRoadAudioPlaying) {
+        isRoadAudioPlaying = true;
+        roadAudio.play().catch(() => {
+          // Silently handle autoplay restrictions
+        });
+      }
     } else {
-      // Stop road audio when not on vehicle lane
       if (isRoadAudioPlaying) {
         isRoadAudioPlaying = false;
         roadAudio.pause();
