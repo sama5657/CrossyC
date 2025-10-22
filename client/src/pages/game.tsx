@@ -135,21 +135,36 @@ export default function Game() {
     if (!walletState.isConnected || score === 0) return;
 
     setShowTransactionModal(true);
-    setTransactionData({ status: "pending" });
+    setTransactionData({ status: "pending", progressMessage: "Initializing transaction...", secondsElapsed: 0 });
 
     try {
-      const result = await saveScoreToBlockchain(score);
+      const result = await saveScoreToBlockchain(score, (stage, secondsElapsed) => {
+        setTransactionData(prev => ({
+          ...prev,
+          status: "pending",
+          progressMessage: stage,
+          secondsElapsed: secondsElapsed,
+        }));
+      });
+      
       setTransactionData({
         status: "success",
         hash: result.hash,
         explorerUrl: getExplorerUrl(result.hash),
         method: result.method,
+        progressMessage: "Transaction confirmed!",
       });
 
       if (result.method === "eoa") {
         toast({
-          title: "Fallback Used",
-          description: "Score saved via EOA wallet (Smart Account timed out)",
+          title: "Fallback to EOA Wallet",
+          description: "Smart Account timed out. Score saved successfully via EOA wallet!",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Success!",
+          description: "Score saved via Smart Account using Alchemy bundler!",
           variant: "default",
         });
       }
@@ -253,6 +268,8 @@ export default function Game() {
         error={transactionData.error}
         explorerUrl={transactionData.explorerUrl}
         method={transactionData.method}
+        progressMessage={transactionData.progressMessage}
+        secondsElapsed={transactionData.secondsElapsed}
         onClose={() => setShowTransactionModal(false)}
       />
 

@@ -32,7 +32,7 @@ export const MONAD_TESTNET = {
   },
 } as const;
 
-export const CONTRACT_ADDRESS = (import.meta.env.VITE_CONTRACT_ADDRESS || "0x8c2b26d35c3c749ff1f4dc91c36a81b304ce36ee") as Address;
+export const CONTRACT_ADDRESS = (import.meta.env.VITE_CONTRACT_ADDRESS || "0x0877c473BCe3aAEa4705AB5C3e24d7b0f630C956") as Address;
 
 export const SCORE_STORE_ABI = [
   {
@@ -47,6 +47,7 @@ export const SCORE_STORE_ABI = [
     inputs: [
       { indexed: true, internalType: "address", name: "player", type: "address" },
       { indexed: false, internalType: "uint256", name: "score", type: "uint256" },
+      { indexed: false, internalType: "bool", name: "isNewHighScore", type: "bool" },
     ],
     name: "ScoreSaved",
     type: "event",
@@ -183,7 +184,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: 
   });
 }
 
-async function saveScoreViaSmartAccount(score: number): Promise<{ hash: string; method: "smartAccount" }> {
+async function saveScoreViaSmartAccount(
+  score: number,
+  onProgress?: (stage: string, secondsElapsed: number) => void
+): Promise<{ hash: string; method: "smartAccount" }> {
   if (!currentSmartAccount) {
     throw new Error("Smart Account not initialized");
   }
@@ -192,38 +196,74 @@ async function saveScoreViaSmartAccount(score: number): Promise<{ hash: string; 
   console.log("Smart Account Address:", currentSmartAccountAddress);
   console.log("Score:", score);
 
-  const bundlerClient = createBundlerClient({
-    client: publicClient,
-    transport: http(BUNDLER_URL),
-  });
+  const startTime = Date.now();
+  let progressInterval: any = null;
 
-  const userOpHash = await bundlerClient.sendUserOperation({
-    account: currentSmartAccount,
-    calls: [
-      {
-        to: CONTRACT_ADDRESS,
-        abi: SCORE_STORE_ABI,
-        functionName: "saveScore",
-        args: [BigInt(score)],
-      },
-    ],
-  });
+  if (onProgress) {
+    onProgress("Preparing Smart Account transaction...", 0);
+    progressInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress(`Processing Smart Account transaction... (${elapsed}s)`, elapsed);
+    }, 1000);
+  }
 
-  console.log("User Operation Hash:", userOpHash);
-  console.log("Waiting for transaction receipt...");
+  try {
+    const bundlerClient = createBundlerClient({
+      client: publicClient,
+      transport: http(BUNDLER_URL),
+    });
 
-  const receipt = await withTimeout(
-    bundlerClient.waitForUserOperationReceipt({
-      hash: userOpHash,
-    }),
-    30000,
-    "Smart Account transaction timed out after 30 seconds"
-  );
+    if (onProgress) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress("Sending transaction to Alchemy bundler...", elapsed);
+    }
 
-  const txHash = receipt.receipt.transactionHash;
-  console.log("Smart Account transaction successful! Hash:", txHash);
+    const userOpHash = await bundlerClient.sendUserOperation({
+      account: currentSmartAccount,
+      calls: [
+        {
+          to: CONTRACT_ADDRESS,
+          abi: SCORE_STORE_ABI,
+          functionName: "saveScore",
+          args: [BigInt(score)],
+        },
+      ],
+    });
 
-  return { hash: txHash, method: "smartAccount" };
+    console.log("User Operation Hash:", userOpHash);
+
+    if (onProgress) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress("Waiting for transaction confirmation...", elapsed);
+    }
+
+    const receipt = await withTimeout(
+      bundlerClient.waitForUserOperationReceipt({
+        hash: userOpHash,
+      }),
+      30000,
+      "Smart Account transaction timed out after 30 seconds"
+    );
+
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    const txHash = receipt.receipt.transactionHash;
+    console.log("Smart Account transaction successful! Hash:", txHash);
+
+    if (onProgress) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      onProgress(`Transaction confirmed! (${elapsed}s total)`, elapsed);
+    }
+
+    return { hash: txHash, method: "smartAccount" };
+  } catch (error) {
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    throw error;
+  }
 }
 
 async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "eoa" }> {
@@ -257,7 +297,10 @@ async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "
   return { hash: txHash, method: "eoa" };
 }
 
-export async function saveScoreToBlockchain(score: number): Promise<{ hash: string; method: "smartAccount" | "eoa" }> {
+export async function saveScoreToBlockchain(
+  score: number,
+  onProgress?: (stage: string, secondsElapsed: number) => void
+): Promise<{ hash: string; method: "smartAccount" | "eoa" }> {
   if (typeof window.ethereum === "undefined") {
     throw new Error("MetaMask not installed");
   }
@@ -273,7 +316,7 @@ export async function saveScoreToBlockchain(score: number): Promise<{ hash: stri
   try {
     if (currentSmartAccount && ALCHEMY_API_KEY) {
       try {
-        return await saveScoreViaSmartAccount(score);
+        return await saveScoreViaSmartAccount(score, onProgress);
       } catch (smartAccountError: any) {
         console.warn("Smart Account transaction failed:", smartAccountError);
 
@@ -288,10 +331,16 @@ export async function saveScoreToBlockchain(score: number): Promise<{ hash: stri
         }
 
         console.log("Falling back to EOA wallet...");
+        if (onProgress) {
+          onProgress("Smart Account timed out, switching to EOA wallet...", 0);
+        }
         return await saveScoreViaEOA(score);
       }
     } else {
       console.log("Smart Account not available, using EOA wallet");
+      if (onProgress) {
+        onProgress("Using EOA wallet for transaction...", 0);
+      }
       return await saveScoreViaEOA(score);
     }
   } catch (error: any) {
