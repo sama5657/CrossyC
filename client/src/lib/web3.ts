@@ -7,7 +7,7 @@ import {
   parseAbi,
   encodeFunctionData
 } from "viem";
-import { createBundlerClient, type UserOperation } from "viem/account-abstraction";
+import { createBundlerClient, createPaymasterClient, type UserOperation } from "viem/account-abstraction";
 import { 
   Implementation, 
   toMetaMaskSmartAccount,
@@ -149,18 +149,38 @@ export async function connectWallet(): Promise<Address> {
     });
 
     const alchemyApiKey = import.meta.env.VITE_ALCHEMY_API_KEY;
+    const gasPolicyId = import.meta.env.VITE_ALCHEMY_GAS_POLICY_ID;
     
     if (!alchemyApiKey) {
       throw new Error("VITE_ALCHEMY_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
     }
 
     const bundlerUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
-    console.log("Using Alchemy bundler for Smart Accounts on Monad testnet");
+    
+    if (gasPolicyId) {
+      console.log("Using Alchemy bundler with Gas Manager paymaster for sponsored transactions");
+      
+      const paymasterClient = createPaymasterClient({
+        transport: http(bundlerUrl),
+      });
 
-    currentBundlerClient = createBundlerClient({
-      client: publicClient,
-      transport: http(bundlerUrl),
-    });
+      currentBundlerClient = createBundlerClient({
+        client: publicClient,
+        transport: http(bundlerUrl),
+        paymaster: paymasterClient,
+        paymasterContext: {
+          policyId: gasPolicyId,
+        },
+      });
+    } else {
+      console.log("Using Alchemy bundler without paymaster (user-funded Smart Account)");
+      console.log("To enable gas sponsorship, set VITE_ALCHEMY_GAS_POLICY_ID in your environment");
+      
+      currentBundlerClient = createBundlerClient({
+        client: publicClient,
+        transport: http(bundlerUrl),
+      });
+    }
 
     console.log("Smart Account created:", currentSmartAccount.address);
     console.log("Smart Account is deployed:", await isSmartAccountDeployed(currentSmartAccount.address));
@@ -203,6 +223,9 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     throw new Error("Smart Account not initialized. Please connect wallet first.");
   }
 
+  const gasPolicyId = import.meta.env.VITE_ALCHEMY_GAS_POLICY_ID;
+  const hasPaymaster = !!gasPolicyId;
+
   try {
     console.log("Submitting score via Smart Account:", currentSmartAccount.address);
     console.log("Score:", score);
@@ -210,7 +233,7 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     const balance = await getSmartAccountBalance(currentSmartAccount.address);
     console.log("Smart Account balance:", balance.toString(), "wei");
 
-    if (balance === BigInt(0)) {
+    if (!hasPaymaster && balance === BigInt(0)) {
       const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
       fundError.name = "InsufficientFundsError";
       throw fundError;
@@ -232,7 +255,12 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     const maxFeePerGas = gasPrice * BigInt(2);
     const maxPriorityFeePerGas = gasPrice / BigInt(2);
 
-    console.log("Attempting bundler user operation...");
+    if (hasPaymaster) {
+      console.log("Sending user operation via Alchemy bundler with Gas Manager paymaster...");
+    } else {
+      console.log("Sending user operation via Alchemy bundler (user-funded)...");
+    }
+
     try {
       const userOperationHash = await currentBundlerClient.sendUserOperation({
         account: currentSmartAccount,
@@ -248,14 +276,17 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
       });
 
       console.log("User operation hash:", userOperationHash);
-      console.log("Waiting for bundler receipt (10s timeout)...");
+      console.log("Waiting for bundler receipt (30s timeout)...");
 
       const receipt = await currentBundlerClient.waitForUserOperationReceipt({
         hash: userOperationHash,
-        timeout: 10_000,
+        timeout: 30_000,
       });
 
       console.log("Bundler transaction confirmed:", receipt.receipt.transactionHash);
+      if (hasPaymaster) {
+        console.log("Gas fees sponsored by Alchemy Gas Manager");
+      }
       return receipt.receipt.transactionHash;
     } catch (bundlerError: any) {
       console.warn("Bundler failed, falling back to direct transaction from EOA:", bundlerError.message);
