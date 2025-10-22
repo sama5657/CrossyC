@@ -10,10 +10,10 @@ export const MONAD_TESTNET = {
   },
   rpcUrls: {
     default: {
-      http: ["https://testnet-rpc.monad.xyz/"],
+      http: ["https://monad-testnet.drpc.org"],
     },
     public: {
-      http: ["https://testnet-rpc.monad.xyz/"],
+      http: ["https://monad-testnet.drpc.org"],
     },
   },
   blockExplorers: {
