@@ -194,10 +194,13 @@ async function saveScoreViaSmartAccount(
 
   console.log("Attempting Smart Account transaction via bundler...");
   console.log("Smart Account Address:", currentSmartAccountAddress);
+  console.log("Bundler URL:", BUNDLER_URL);
   console.log("Score:", score);
 
   const startTime = Date.now();
   let progressInterval: any = null;
+  const SA_TIMEOUT = 15000; // Reduced from 30s to 15s for faster fallback
+  const SEND_TIMEOUT = 5000; // 5 second timeout for sending user op
 
   if (onProgress) {
     onProgress("Preparing Smart Account transaction...", 0);
@@ -208,6 +211,7 @@ async function saveScoreViaSmartAccount(
   }
 
   try {
+    console.log("Creating bundler client with URL:", BUNDLER_URL);
     const bundlerClient = createBundlerClient({
       client: publicClient,
       transport: http(BUNDLER_URL),
@@ -218,17 +222,27 @@ async function saveScoreViaSmartAccount(
       onProgress("Sending transaction to Alchemy bundler...", elapsed);
     }
 
-    const userOpHash = await bundlerClient.sendUserOperation({
-      account: currentSmartAccount,
-      calls: [
-        {
-          to: CONTRACT_ADDRESS,
-          abi: SCORE_STORE_ABI,
-          functionName: "saveScore",
-          args: [BigInt(score)],
-        },
-      ],
-    });
+    let userOpHash: string;
+    try {
+      userOpHash = await withTimeout(
+        bundlerClient.sendUserOperation({
+          account: currentSmartAccount,
+          calls: [
+            {
+              to: CONTRACT_ADDRESS,
+              abi: SCORE_STORE_ABI,
+              functionName: "saveScore",
+              args: [BigInt(score)],
+            },
+          ],
+        }),
+        SEND_TIMEOUT,
+        "Failed to send user operation to bundler"
+      );
+    } catch (sendError: any) {
+      console.error("Error sending user operation:", sendError);
+      throw new Error(`Bundler submission failed: ${sendError?.message || sendError}`);
+    }
 
     console.log("User Operation Hash:", userOpHash);
 
@@ -237,16 +251,26 @@ async function saveScoreViaSmartAccount(
       onProgress("Waiting for transaction confirmation...", elapsed);
     }
 
-    const receipt = await withTimeout(
-      bundlerClient.waitForUserOperationReceipt({
-        hash: userOpHash,
-      }),
-      30000,
-      "Smart Account transaction timed out after 30 seconds"
-    );
+    let receipt;
+    try {
+      receipt = await withTimeout(
+        bundlerClient.waitForUserOperationReceipt({
+          hash: userOpHash,
+        }),
+        SA_TIMEOUT,
+        `Smart Account transaction timed out after ${SA_TIMEOUT / 1000} seconds`
+      );
+    } catch (receiptError: any) {
+      console.error("Error waiting for user operation receipt:", receiptError);
+      throw receiptError;
+    }
 
     if (progressInterval) {
       clearInterval(progressInterval);
+    }
+
+    if (!receipt?.receipt?.transactionHash) {
+      throw new Error("Transaction receipt missing or incomplete");
     }
 
     const txHash = receipt.receipt.transactionHash;
@@ -262,6 +286,7 @@ async function saveScoreViaSmartAccount(
     if (progressInterval) {
       clearInterval(progressInterval);
     }
+    console.error("Smart Account transaction error:", error);
     throw error;
   }
 }
