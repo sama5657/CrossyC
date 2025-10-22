@@ -33,6 +33,27 @@ export default function Game() {
   const gameInstanceRef = useRef<any>(null);
 
   useEffect(() => {
+    if (!gameOver || !walletState.smartAccountAddress) return;
+
+    const fetchPlayerRank = async () => {
+      try {
+        const leaderboard = await getTopScoresFromBlockchain();
+        const rank = leaderboard.findIndex(
+          (entry) => entry.player.toLowerCase() === walletState.smartAccountAddress?.toLowerCase()
+        );
+
+        if (rank !== -1) {
+          setPlayerRank(rank + 1);
+        }
+      } catch (error) {
+        console.error("Failed to fetch player rank:", error);
+      }
+    };
+
+    fetchPlayerRank();
+  }, [gameOver, walletState.smartAccountAddress]);
+
+  useEffect(() => {
     if (!canvasRef.current || !walletState.isConnected) return;
 
     const initGame = async () => {
