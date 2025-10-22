@@ -217,18 +217,11 @@ export function WalletBalanceCard({ address, label = 'Wallet' }: WalletBalanceCa
           </div>
         )}
 
-        {/* Powered by Envio Badge */}
+        {/* Balance Info */}
         <div className="pt-2 border-t border-purple-500/20">
-          <a
-            href="https://envio.dev"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 text-[10px] text-purple-400/60 hover:text-purple-300 transition-colors"
-            data-testid="link-powered-by-envio"
-          >
-            <span>Powered by</span>
-            <span className="font-['Press_Start_2P'] text-purple-400">Envio HyperSync</span>
-          </a>
+          <div className="flex items-center justify-center text-[10px] text-purple-400/60">
+            <span>MON Balance via RPC</span>
+          </div>
         </div>
       </CardContent>
     </Card>

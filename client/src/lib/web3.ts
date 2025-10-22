@@ -68,7 +68,7 @@ export const SCORE_STORE_ABI = [
   },
 ] as const;
 
-const MONAD_RPC_URL = import.meta.env.MONAD_RPC || "https://rpc.ankr.com/monad_testnet";
+const MONAD_RPC_URL = import.meta.env.VITE_MONAD_RPC || "https://rpc.ankr.com/monad_testnet";
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || "";
 const BUNDLER_URL = `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 

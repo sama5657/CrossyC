@@ -236,7 +236,7 @@ export default function Game() {
         onConnect={handleConnectWallet}
       />
 
-      {/* Envio HyperSync - Wallet Balance Display */}
+      {/* Wallet Balance Display */}
       {walletState.isConnected && walletState.smartAccountAddress && (
         <div className="fixed bottom-32 left-8 z-40 w-80">
           <WalletBalanceCard 

@@ -15,9 +15,9 @@ Crossy Chain is a Web3-enabled Crossy Road clone that combines classic arcade ga
 - **Alchemy Bundler** - Reliable transaction processing via Alchemy's infrastructure
 - **Automatic Fallback** - Seamlessly switches from Smart Account to EOA if timeout occurs
 - **On-Chain Scores** - Permanent, verifiable high score storage on Monad blockchain
-- **Real-Time Balance** - Powered by Envio HyperSync for ultra-fast balance updates
+- **Real-Time Balance** - Live MON balance updates using standard RPC calls
 - **Transaction Progress** - Live countdown and status updates during score submission
-- **Netlify Compatible** - Frontend-only Envio integration works on static hosting
+- **Netlify Compatible** - Fully static deployment, works on all hosting platforms
 
 ## Technology Stack
 
@@ -70,7 +70,7 @@ Required environment variables (stored in Replit Secrets):
 - `VITE_ALCHEMY_API_KEY`: Alchemy API key for bundler operations
 
 Optional:
-- `MONAD_RPC`: Monad RPC URL (defaults to https://rpc.ankr.com/monad_testnet)
+- `VITE_MONAD_RPC`: Monad RPC URL (defaults to https://rpc.ankr.com/monad_testnet)
 
 ### Smart Contract Deployment
 
@@ -120,7 +120,7 @@ This project uses MetaMask's Delegation Toolkit with **Alchemy bundler** (NOT Pi
 1. **User connects MetaMask** - Standard EOA (Externally Owned Account) connection
 2. **Smart Account creation** - System automatically creates ERC-4337 Smart Account linked to EOA
 3. **Address display** - Both EOA and Smart Account addresses shown in UI
-4. **Balance monitoring** - Envio HyperSync tracks balances in real-time
+4. **Balance monitoring** - RPC polling updates balances every 10 seconds
 
 ### Transaction Submission Flow
 
@@ -293,12 +293,11 @@ npm run build
 
 This project is **fully compatible with Netlify** static hosting:
 
-1. **No backend required** - Envio runs in browser, no Express server needed
+1. **No backend required** - Pure frontend application, works on static hosting
 2. **Environment variables** - Set in Netlify dashboard:
    - `VITE_CONTRACT_ADDRESS=0x0877c473BCe3aAEa4705AB5C3e24d7b0f630C956`
    - `VITE_ALCHEMY_API_KEY=your_alchemy_key`
-   - `VITE_ENVIO_API_TOKEN=478b4ac4-c83e-4a60-9eb8-d689e14772fa`
-   - `MONAD_RPC=https://testnet-rpc.monad.xyz/`
+   - `VITE_MONAD_RPC=https://testnet-rpc.monad.xyz/`
 
 3. **Build settings**:
    - Build command: `npm run build`
