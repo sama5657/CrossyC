@@ -177,20 +177,20 @@ async function fetchLogsWithRetry(
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      const params = {
+        address: CONTRACT_ADDRESS.toLowerCase(),
+        topics: [SCORE_SAVED_TOPIC],
+        fromBlock: `0x${fromBlock.toString(16)}`,
+        toBlock: `0x${toBlock.toString(16)}`,
+      };
+
       const logsResponse = await fetch("https://rpc.ankr.com/monad_testnet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jsonrpc: "2.0",
           method: "eth_getLogs",
-          params: [
-            {
-              address: CONTRACT_ADDRESS.toLowerCase(),
-              topics: [SCORE_SAVED_TOPIC],
-              fromBlock: `0x${fromBlock.toString(16)}`,
-              toBlock: `0x${toBlock.toString(16)}`,
-            },
-          ],
+          params: [params],
           id: 1,
         }),
       });
