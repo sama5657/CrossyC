@@ -254,9 +254,8 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
     const blockData = await blockResponse.json();
     const latestBlockNumber = parseInt(blockData.result || "0", 16);
 
-    // Fetch logs in smaller chunks of 2500 blocks with retry logic
-    // Smaller chunks reduce chances of hitting size/timeout limits
-    const chunkSize = 2500;
+    // Fetch logs in chunks of 100 blocks (Monad RPC limit is 100 block range per query)
+    const chunkSize = 100;
 
     for (let fromBlock = 0; fromBlock <= latestBlockNumber; fromBlock += chunkSize) {
       const toBlock = Math.min(fromBlock + chunkSize - 1, latestBlockNumber);
