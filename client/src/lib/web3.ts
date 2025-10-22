@@ -284,15 +284,20 @@ async function saveScoreViaSmartAccount(
 
     let receipt;
     try {
+      const receiptTimeoutMs = 8000; // 8 seconds to wait for receipt after submission
+      console.log("Waiting for user operation receipt...");
+
       receipt = await withTimeout(
         bundlerClient.waitForUserOperationReceipt({
           hash: userOpHash,
         }),
-        SA_TIMEOUT,
-        `Smart Account transaction timed out after ${SA_TIMEOUT / 1000} seconds`
+        receiptTimeoutMs,
+        `Smart Account transaction confirmation timed out after ${receiptTimeoutMs / 1000} seconds`
       );
+
+      console.log("Receipt received:", receipt);
     } catch (receiptError: any) {
-      console.error("Error waiting for user operation receipt:", receiptError);
+      console.error("Error waiting for user operation receipt:", receiptError?.message || receiptError);
       throw receiptError;
     }
 
