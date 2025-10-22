@@ -76,7 +76,7 @@ export function WalletConnectCard({
                 </div>
               </div>
               <div className="text-[9px] text-muted-foreground max-w-[200px] leading-tight">
-                This Smart Account needs MON tokens to pay gas fees
+                Fund MON to Smart Account
               </div>
             </>
           )}
