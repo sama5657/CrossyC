@@ -27,6 +27,7 @@ export function GameOverModal({
   transactionHash,
   explorerUrl,
   isSavingScore,
+  playerRank,
   onRetry,
   onSubmitScore,
   onClose,
