@@ -30,6 +30,8 @@ export function initializeGame(
   hitAudio.volume = 0.7;
   let isRoadAudioPlaying = false;
   let lastVehicleCollisionTime = 0;
+  let animationFrameId: number | null = null;
+  let isGameRunning = true;
 
   const scene = new THREE.Scene();
 
