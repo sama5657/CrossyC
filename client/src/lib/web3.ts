@@ -339,30 +339,44 @@ export async function saveScoreToBlockchain(
   }
 
   try {
-    if (currentSmartAccount && ALCHEMY_API_KEY) {
+    // Attempt Smart Account transaction if available and API key is set
+    if (currentSmartAccount && ALCHEMY_API_KEY && ALCHEMY_API_KEY.length > 0) {
+      console.log("Smart Account available, attempting transaction...");
+      console.log("API Key configured:", ALCHEMY_API_KEY.substring(0, 8) + "...");
+
       try {
         return await saveScoreViaSmartAccount(score, onProgress);
       } catch (smartAccountError: any) {
-        console.warn("Smart Account transaction failed:", smartAccountError);
+        console.error("Smart Account transaction failed:", smartAccountError?.message || smartAccountError);
 
+        // Don't fallback on user rejection - let it fail
         if (smartAccountError?.code === 4001 || smartAccountError?.message?.includes("User rejected")) {
           console.log("User rejected Smart Account transaction");
           throw smartAccountError;
         }
 
+        // Don't fallback on insufficient funds in Smart Account
         if (smartAccountError?.name === "InsufficientFundsError" || smartAccountError?.message?.includes("INSUFFICIENT_FUNDS")) {
           console.log("Insufficient funds in Smart Account");
           throw smartAccountError;
         }
 
-        console.log("Falling back to EOA wallet...");
+        // For all other errors (timeout, network errors, etc), fall back to EOA
+        console.log("Smart Account failed, falling back to EOA wallet...");
         if (onProgress) {
-          onProgress("Smart Account timed out, switching to EOA wallet...", 0);
+          onProgress("Smart Account unavailable, switching to EOA wallet...", 0);
         }
-        return await saveScoreViaEOA(score);
+
+        try {
+          return await saveScoreViaEOA(score);
+        } catch (eoaError: any) {
+          console.error("EOA fallback also failed:", eoaError);
+          throw eoaError;
+        }
       }
     } else {
-      console.log("Smart Account not available, using EOA wallet");
+      console.log("Smart Account not configured, using EOA wallet directly");
+      console.log("Smart Account exists:", !!currentSmartAccount, "API Key:", ALCHEMY_API_KEY ? "set" : "not set");
       if (onProgress) {
         onProgress("Using EOA wallet for transaction...", 0);
       }
@@ -370,23 +384,23 @@ export async function saveScoreToBlockchain(
     }
   } catch (error: any) {
     console.error("Error saving score:", error);
-    
+
     if (error?.code === 4001 || error?.message?.includes("User rejected")) {
       const userRejectionError = new Error("User rejected");
       (userRejectionError as any).code = 4001;
       throw userRejectionError;
     }
-    
+
     if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
       throw error;
     }
-    
+
     if (error?.message?.includes("insufficient funds") || error?.message?.includes("exceeds balance")) {
       const fundError = new Error(`INSUFFICIENT_FUNDS:${currentEOAAddress}`);
       fundError.name = "InsufficientFundsError";
       throw fundError;
     }
-    
+
     throw error;
   }
 }
