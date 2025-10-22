@@ -50,7 +50,10 @@ export default function Game() {
       const game = initializeGame(
         canvasRef.current!,
         (newScore) => setScore(newScore),
-        () => setGameOver(true)
+        () => {
+          game.stop();
+          setGameOver(true);
+        }
       );
 
       gameInstanceRef.current = game;
