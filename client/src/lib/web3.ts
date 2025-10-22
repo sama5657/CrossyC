@@ -248,7 +248,7 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
     const playerScores = new Map<string, { score: number; blockNumber: number }>();
 
     // Get latest block number first
-    const blockResponse = await fetch("https://testnet-rpc.monad.xyz/", {
+    const blockResponse = await fetch("https://monad-testnet.drpc.org", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
