@@ -298,8 +298,22 @@ async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "
 
   console.log("Submitting score via EOA wallet:", currentEOAAddress);
   console.log("Score:", score);
+  console.log("Contract Address:", CONTRACT_ADDRESS);
 
-  const balance = await publicClient.getBalance({ address: currentEOAAddress });
+  // Check balance with timeout
+  let balance: bigint;
+  try {
+    balance = await withTimeout(
+      publicClient.getBalance({ address: currentEOAAddress }),
+      5000,
+      "Failed to check EOA balance"
+    );
+  } catch (balanceError: any) {
+    console.error("Error checking EOA balance:", balanceError);
+    // Continue anyway, let the transaction attempt and fail if no balance
+    balance = BigInt(0);
+  }
+
   console.log("EOA wallet balance:", balance.toString(), "wei");
 
   if (balance === BigInt(0)) {
@@ -309,17 +323,21 @@ async function saveScoreViaEOA(score: number): Promise<{ hash: string; method: "
   }
 
   console.log("Sending transaction from EOA wallet...");
-  
-  const txHash = await currentEOAWalletClient.writeContract({
-    address: CONTRACT_ADDRESS,
-    abi: SCORE_STORE_ABI,
-    functionName: "saveScore",
-    args: [BigInt(score)],
-  });
 
-  console.log("EOA transaction successful! Hash:", txHash);
+  try {
+    const txHash = await currentEOAWalletClient.writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: SCORE_STORE_ABI,
+      functionName: "saveScore",
+      args: [BigInt(score)],
+    });
 
-  return { hash: txHash, method: "eoa" };
+    console.log("EOA transaction successful! Hash:", txHash);
+    return { hash: txHash, method: "eoa" };
+  } catch (txError: any) {
+    console.error("EOA transaction error:", txError);
+    throw txError;
+  }
 }
 
 export async function saveScoreToBlockchain(
