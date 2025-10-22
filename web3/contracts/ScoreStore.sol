@@ -7,7 +7,7 @@ contract ScoreStore {
     event ScoreSaved(address indexed player, uint256 score);
     
     function saveScore(uint256 _score) external {
-        require(_score > scores[msg.sender], "Score must be higher than current score");
+        require(_score > 0, "Score must be greater than zero");
         scores[msg.sender] = _score;
         emit ScoreSaved(msg.sender, _score);
     }

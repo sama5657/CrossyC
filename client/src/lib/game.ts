@@ -20,6 +20,19 @@ export function initializeGame(
     return null;
   }
 
+  // Initialize audio
+  const jumpAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2F7475201ea65542a18ce807cf0d4c5864?alt=media&token=58705ae3-5c1e-4f3e-ad41-9ea48df6ffb2&apiKey=6ccb46757eb14f64852d56e691f250e2");
+  jumpAudio.volume = 0.5;
+  const roadAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2Fb118fa664daf4256bbea53e0dee7dfd5?alt=media&token=a9fa320c-002d-4a8d-9159-c437fe52bee2&apiKey=6ccb46757eb14f64852d56e691f250e2");
+  roadAudio.volume = 0.3;
+  roadAudio.loop = true;
+  const hitAudio = new Audio("https://cdn.builder.io/o/assets%2F6ccb46757eb14f64852d56e691f250e2%2Fca415679cca74802adb4fd119aef6278?alt=media&token=9244ec1b-e0d4-4ccc-ace7-5c6d01171376&apiKey=6ccb46757eb14f64852d56e691f250e2");
+  hitAudio.volume = 0.7;
+  let isRoadAudioPlaying = false;
+  let lastVehicleCollisionTime = 0;
+  let animationFrameId: number | null = null;
+  let isGameRunning = true;
+
   const scene = new THREE.Scene();
 
   const distance = 500;
@@ -486,10 +499,17 @@ export function initializeGame(
       if (!stepStartTimestamp) startMoving = true;
     }
     moves.push(direction);
+
+    // Play jump sound
+    jumpAudio.currentTime = 0;
+    jumpAudio.play().catch(() => {
+      // Silently handle autoplay restrictions
+    });
   }
 
   function animate(timestamp: number) {
-    requestAnimationFrame(animate);
+    if (!isGameRunning) return;
+    animationFrameId = requestAnimationFrame(animate);
 
     if (!previousTimestamp) previousTimestamp = timestamp;
     const delta = timestamp - previousTimestamp;
@@ -588,39 +608,103 @@ export function initializeGame(
       }
     }
 
+    // Check for collision in current lane
     if (lanes[currentLane].type === "car" || lanes[currentLane].type === "truck") {
       const chickenMinX = chicken.position.x - (chickenSize * zoom) / 2;
       const chickenMaxX = chicken.position.x + (chickenSize * zoom) / 2;
       const vehicleLengths: { car: number; truck: number } = { car: 60, truck: 105 };
       const vechicleLength = vehicleLengths[lanes[currentLane].type as "car" | "truck"];
+
       lanes[currentLane].vechicles.forEach((vechicle: any) => {
         const carMinX = vechicle.position.x - (vechicleLength * zoom) / 2;
         const carMaxX = vechicle.position.x + (vechicleLength * zoom) / 2;
         if (chickenMaxX > carMinX && chickenMinX < carMaxX) {
+          // Play hit sound on collision
+          hitAudio.currentTime = 0;
+          hitAudio.play().catch(() => {
+            // Silently handle autoplay restrictions
+          });
+          if (Date.now() - lastVehicleCollisionTime > 300) {
+            lastVehicleCollisionTime = Date.now();
+          }
           onGameOver();
         }
       });
     }
 
+    // Check if any vehicles are nearby in any lane (within 3 lanes distance)
+    let vehiclesNearby = false;
+    const nearbyLaneRange = 3;
+
+    for (let i = Math.max(0, currentLane - nearbyLaneRange); i <= Math.min(lanes.length - 1, currentLane + nearbyLaneRange); i++) {
+      if (lanes[i].type === "car" || lanes[i].type === "truck") {
+        if (lanes[i].vechicles && lanes[i].vechicles.length > 0) {
+          vehiclesNearby = true;
+          break;
+        }
+      }
+    }
+
+    // Play road audio when vehicles are nearby, stop otherwise
+    if (vehiclesNearby) {
+      if (!isRoadAudioPlaying) {
+        isRoadAudioPlaying = true;
+        roadAudio.play().catch(() => {
+          // Silently handle autoplay restrictions
+        });
+      }
+    } else {
+      if (isRoadAudioPlaying) {
+        isRoadAudioPlaying = false;
+        roadAudio.pause();
+        roadAudio.currentTime = 0;
+      }
+    }
+
     renderer.render(scene, camera);
   }
 
-  requestAnimationFrame(animate);
+  animationFrameId = requestAnimationFrame(animate);
+
+  const stop = () => {
+    isGameRunning = false;
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    roadAudio.pause();
+    jumpAudio.pause();
+  };
 
   const retry = () => {
     lanes.forEach((lane: any) => scene.remove(lane.mesh));
+    roadAudio.pause();
+    roadAudio.currentTime = 0;
+    isRoadAudioPlaying = false;
+    isGameRunning = true;
     initialiseValues();
+    animationFrameId = requestAnimationFrame(animate);
   };
 
   window.addEventListener("keydown", (event) => {
-    if (event.keyCode == 38) move("forward");
-    else if (event.keyCode == 40) move("backward");
-    else if (event.keyCode == 37) move("left");
-    else if (event.keyCode == 39) move("right");
+    const key = event.key.toLowerCase();
+
+    // Arrow keys
+    if (event.keyCode === 38 || key === "arrowup") move("forward");
+    else if (event.keyCode === 40 || key === "arrowdown") move("backward");
+    else if (event.keyCode === 37 || key === "arrowleft") move("left");
+    else if (event.keyCode === 39 || key === "arrowright") move("right");
+
+    // WASD keys
+    else if (key === "w") move("forward");
+    else if (key === "s") move("backward");
+    else if (key === "a") move("left");
+    else if (key === "d") move("right");
   });
 
   return {
     move,
     retry,
+    stop,
   };
 }
