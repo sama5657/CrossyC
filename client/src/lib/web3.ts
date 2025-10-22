@@ -185,7 +185,7 @@ async function fetchLogsWithRetry(
           method: "eth_getLogs",
           params: [
             {
-              address: CONTRACT_ADDRESS,
+              address: CONTRACT_ADDRESS.toLowerCase(),
               topics: [SCORE_SAVED_TOPIC],
               fromBlock: `0x${fromBlock.toString(16)}`,
               toBlock: `0x${toBlock.toString(16)}`,
