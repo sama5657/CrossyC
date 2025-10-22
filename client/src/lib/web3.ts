@@ -244,12 +244,23 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     console.log("User operation hash:", userOperationHash);
 
     console.log("Waiting for transaction receipt...");
-    const receipt = await currentBundlerClient.waitForUserOperationReceipt({
-      hash: userOperationHash,
-    });
+    try {
+      const receipt = await currentBundlerClient.waitForUserOperationReceipt({
+        hash: userOperationHash,
+        timeout: 300_000,
+      });
 
-    console.log("Transaction confirmed:", receipt.receipt.transactionHash);
-    return receipt.receipt.transactionHash;
+      console.log("Transaction confirmed:", receipt.receipt.transactionHash);
+      return receipt.receipt.transactionHash;
+    } catch (timeoutError: any) {
+      if (timeoutError?.name === "WaitForUserOperationReceiptTimeoutError") {
+        console.warn("Transaction timed out, but may still be processing");
+        const pendingError = new Error(`PENDING:${userOperationHash}`);
+        pendingError.name = "TransactionPendingError";
+        throw pendingError;
+      }
+      throw timeoutError;
+    }
   } catch (error: any) {
     console.error("Error saving score:", error);
     

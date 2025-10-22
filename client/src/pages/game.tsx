@@ -143,6 +143,9 @@ export default function Game() {
       } else if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
         const address = error.message.split(":")[1] || walletState.smartAccountAddress;
         errorMessage = `Your Smart Account needs MON tokens to pay for gas fees.\n\nSmart Account: ${address}\n\nPlease send some MON tokens from your MetaMask wallet to this Smart Account address, then try again.\n\nYou can get free testnet MON from the Monad faucet.`;
+      } else if (error?.name === "TransactionPendingError" || error?.message?.includes("PENDING:")) {
+        const userOpHash = error.message.split(":")[1];
+        errorMessage = `Transaction is taking longer than expected to confirm.\n\nUser Operation Hash: ${userOpHash}\n\nThis might be due to network congestion on Monad testnet. The transaction may still complete - please wait a few minutes and check the Monad Explorer.\n\nTip: For faster transactions, consider using regular wallet transactions instead of Smart Accounts.`;
       } else if (error?.message?.includes("Contract not deployed")) {
         errorMessage = "Smart contract not deployed. Please deploy the contract first and set VITE_CONTRACT_ADDRESS in .env file.";
       } else if (error?.message?.includes("Lower score")) {
