@@ -145,11 +145,18 @@ export async function connectWallet(): Promise<Address> {
       signer: { walletClient },
     });
 
-    console.log("Using Monad RPC as bundler for Smart Accounts");
+    const alchemyApiKey = import.meta.env.VITE_ALCHEMY_API_KEY;
+    
+    if (!alchemyApiKey) {
+      throw new Error("VITE_ALCHEMY_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
+    }
+
+    const bundlerUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
+    console.log("Using Alchemy bundler for Smart Accounts on Monad testnet");
 
     currentBundlerClient = createBundlerClient({
       client: publicClient,
-      transport: http(MONAD_RPC_URL),
+      transport: http(bundlerUrl),
     });
 
     console.log("Smart Account created:", currentSmartAccount.address);

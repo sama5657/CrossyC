@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Wallet, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getSmartAccountBalance } from "@/lib/web3";
+import type { Address } from "viem";
 
 interface WalletConnectCardProps {
   isConnected: boolean;
@@ -17,6 +19,20 @@ export function WalletConnectCard({
   onConnect,
 }: WalletConnectCardProps) {
   const [copied, setCopied] = useState(false);
+  const [balance, setBalance] = useState<string>("0");
+
+  useEffect(() => {
+    if (smartAccountAddress && isConnected) {
+      const fetchBalance = async () => {
+        const bal = await getSmartAccountBalance(smartAccountAddress as Address);
+        const monBalance = Number(bal) / 1e18;
+        setBalance(monBalance.toFixed(4));
+      };
+      fetchBalance();
+      const interval = setInterval(fetchBalance, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [smartAccountAddress, isConnected]);
 
   const truncateAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -75,8 +91,11 @@ export function WalletConnectCard({
                   </Button>
                 </div>
               </div>
-              <div className="text-[9px] text-muted-foreground max-w-[200px] leading-tight">
-                Fund MON to Smart Account
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-mono text-muted-foreground">Balance:</span>
+                <span className="text-xs font-mono text-foreground" data-testid="text-wallet-balance">
+                  {balance} MON
+                </span>
               </div>
             </>
           )}
