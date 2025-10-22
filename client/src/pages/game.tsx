@@ -24,34 +24,12 @@ export default function Game() {
   });
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [playerRank, setPlayerRank] = useState<number | undefined>();
   const [transactionData, setTransactionData] = useState<TransactionData>({
     status: "idle",
   });
   const [showTransactionModal, setShowTransactionModal] = useState(false);
 
   const gameInstanceRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (!gameOver || !walletState.smartAccountAddress) return;
-
-    const fetchPlayerRank = async () => {
-      try {
-        const leaderboard = await getTopScoresFromBlockchain();
-        const rank = leaderboard.findIndex(
-          (entry) => entry.player.toLowerCase() === walletState.smartAccountAddress?.toLowerCase()
-        );
-
-        if (rank !== -1) {
-          setPlayerRank(rank + 1);
-        }
-      } catch (error) {
-        console.error("Failed to fetch player rank:", error);
-      }
-    };
-
-    fetchPlayerRank();
-  }, [gameOver, walletState.smartAccountAddress]);
 
   useEffect(() => {
     if (!canvasRef.current || !walletState.isConnected) return;
