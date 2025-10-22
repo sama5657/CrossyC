@@ -5,6 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { ArrowDownIcon, ArrowUpIcon, CoinsIcon, RefreshCwIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { publicClient } from '@/lib/web3';
+import type { Address } from 'viem';
 
 interface NativeBalance {
   address: string;
@@ -54,18 +56,33 @@ function formatTokenAmount(value: string, decimals: number = 18): string {
 
 export function WalletBalanceCard({ address, label = 'Wallet' }: WalletBalanceCardProps) {
   const { data: nativeBalance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery<NativeBalance>({
-    queryKey: ['/api/balance', address],
+    queryKey: ['balance', address],
+    queryFn: async () => {
+      const balance = await publicClient.getBalance({ address: address as Address });
+      return {
+        address,
+        received: '0',
+        sent: '0',
+        balance: balance.toString(),
+      };
+    },
     enabled: !!address,
+    staleTime: 5000,
+    refetchInterval: 10000,
   });
 
   const { data: transfers, isLoading: transfersLoading, refetch: refetchTransfers } = useQuery<TokenTransfer[]>({
-    queryKey: ['/api/transfers', address],
+    queryKey: ['transfers', address],
+    queryFn: async () => [],
     enabled: !!address,
+    staleTime: 5000,
   });
 
   const { data: tokenBalances, isLoading: tokensLoading, refetch: refetchTokens } = useQuery<Record<string, TokenBalance>>({
-    queryKey: ['/api/token-balances', address],
+    queryKey: ['token-balances', address],
+    queryFn: async () => ({}),
     enabled: !!address,
+    staleTime: 5000,
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
