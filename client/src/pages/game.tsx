@@ -216,7 +216,6 @@ export default function Game() {
         transactionHash={transactionData.hash}
         explorerUrl={transactionData.explorerUrl}
         isSavingScore={transactionData.status === "pending"}
-        playerRank={playerRank}
         onRetry={handleRetry}
         onSubmitScore={handleSaveScore}
         onClose={handleRetry}
