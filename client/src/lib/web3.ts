@@ -70,7 +70,17 @@ export const SCORE_STORE_ABI = [
 
 const MONAD_RPC_URL = import.meta.env.VITE_MONAD_RPC || "https://rpc.ankr.com/monad_testnet";
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || "";
-const BUNDLER_URL = `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
+// Validate Alchemy API key on init
+if (ALCHEMY_API_KEY) {
+  console.log("Alchemy API Key loaded:", ALCHEMY_API_KEY.substring(0, 8) + "...");
+} else {
+  console.warn("VITE_ALCHEMY_API_KEY not set - Smart Account transactions will fail");
+}
+
+const BUNDLER_URL = ALCHEMY_API_KEY
+  ? `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  : "";
 
 export const publicClient = createPublicClient({
   chain: MONAD_TESTNET,
