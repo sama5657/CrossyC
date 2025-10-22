@@ -177,7 +177,7 @@ async function fetchLogsWithRetry(
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const logsResponse = await fetch("https://testnet-rpc.monad.xyz/", {
+      const logsResponse = await fetch("https://monad-testnet.drpc.org", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
