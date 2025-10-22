@@ -226,10 +226,18 @@ async function saveScoreViaSmartAccount(
 
   try {
     console.log("Creating bundler client with URL:", BUNDLER_URL);
-    const bundlerClient = createBundlerClient({
-      client: publicClient,
-      transport: http(BUNDLER_URL),
-    });
+
+    let bundlerClient;
+    try {
+      bundlerClient = createBundlerClient({
+        client: publicClient,
+        transport: http(BUNDLER_URL),
+      });
+      console.log("Bundler client created successfully");
+    } catch (clientError: any) {
+      console.error("Failed to create bundler client:", clientError);
+      throw new Error(`Failed to initialize bundler: ${clientError?.message || clientError}`);
+    }
 
     if (onProgress) {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -238,23 +246,32 @@ async function saveScoreViaSmartAccount(
 
     let userOpHash: string;
     try {
+      console.log("Submitting user operation to bundler...");
+      console.log("Contract:", CONTRACT_ADDRESS);
+      console.log("Score:", score);
+
+      const sendPromise = bundlerClient.sendUserOperation({
+        account: currentSmartAccount,
+        calls: [
+          {
+            to: CONTRACT_ADDRESS,
+            abi: SCORE_STORE_ABI,
+            functionName: "saveScore",
+            args: [BigInt(score)],
+          },
+        ],
+      });
+
       userOpHash = await withTimeout(
-        bundlerClient.sendUserOperation({
-          account: currentSmartAccount,
-          calls: [
-            {
-              to: CONTRACT_ADDRESS,
-              abi: SCORE_STORE_ABI,
-              functionName: "saveScore",
-              args: [BigInt(score)],
-            },
-          ],
-        }),
+        sendPromise,
         SEND_TIMEOUT,
-        "Failed to send user operation to bundler"
+        `Failed to send user operation to bundler (timeout after ${SEND_TIMEOUT / 1000}s)`
       );
+
+      console.log("User operation submitted successfully, hash:", userOpHash);
     } catch (sendError: any) {
-      console.error("Error sending user operation:", sendError);
+      console.error("Error sending user operation:", sendError?.message || sendError);
+      console.error("Full error:", sendError);
       throw new Error(`Bundler submission failed: ${sendError?.message || sendError}`);
     }
 
