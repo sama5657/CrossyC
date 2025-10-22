@@ -63,6 +63,15 @@ export function GameOverModal({
           </p>
         </div>
 
+        {playerRank && (
+          <div className="bg-accent/20 p-4 rounded-md border-2 border-accent" data-testid="container-player-rank">
+            <p className="text-xs text-muted-foreground mb-1 font-mono text-center">LEADERBOARD RANK</p>
+            <p className="text-2xl font-sans text-accent text-center" data-testid="text-player-rank">
+              #{playerRank}
+            </p>
+          </div>
+        )}
+
         {transactionHash && (
           <div className="bg-muted/50 p-3 rounded-md border border-border" data-testid="container-score-tx">
             <p className="text-xs text-muted-foreground mb-1 font-mono">Score saved on-chain</p>
