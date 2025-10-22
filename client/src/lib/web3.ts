@@ -237,6 +237,14 @@ async function fetchLogsWithRetry(
 
 export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
   try {
+    // Check if contract address is valid
+    if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+      console.warn(
+        "Smart contract address not configured. Please set VITE_CONTRACT_ADDRESS environment variable."
+      );
+      return [];
+    }
+
     const playerScores = new Map<string, { score: number; blockNumber: number }>();
 
     // Get latest block number first
