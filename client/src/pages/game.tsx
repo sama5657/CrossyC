@@ -34,6 +34,9 @@ export default function Game() {
 
   const gameInstanceRef = useRef<any>(null);
 
+  // Enable blockchain notifications for the Smart Account address
+  useBlockchainNotifications(walletState.smartAccountAddress as Address | undefined);
+
   useEffect(() => {
     if (!canvasRef.current || !walletState.isConnected) return;
 
