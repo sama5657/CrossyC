@@ -37,18 +37,6 @@ export default function Game() {
     if (!canvasRef.current || !walletState.isConnected) return;
 
     const initGame = async () => {
-      // Wait for Three.js to load
-      let attempts = 0;
-      while (!window.THREE && attempts < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-
-      if (!window.THREE) {
-        console.error("Three.js failed to load");
-        return;
-      }
-
       const game = initializeGame(
         canvasRef.current!,
         (newScore) => setScore(newScore),
