@@ -664,14 +664,26 @@ export function initializeGame(
     renderer.render(scene, camera);
   }
 
-  requestAnimationFrame(animate);
+  animationFrameId = requestAnimationFrame(animate);
+
+  const stop = () => {
+    isGameRunning = false;
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    roadAudio.pause();
+    jumpAudio.pause();
+  };
 
   const retry = () => {
     lanes.forEach((lane: any) => scene.remove(lane.mesh));
     roadAudio.pause();
     roadAudio.currentTime = 0;
     isRoadAudioPlaying = false;
+    isGameRunning = true;
     initialiseValues();
+    animationFrameId = requestAnimationFrame(animate);
   };
 
   window.addEventListener("keydown", (event) => {
