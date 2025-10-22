@@ -73,7 +73,7 @@ export const SCORE_STORE_ABI = [
   },
 ] as const;
 
-const MONAD_RPC_URL = "https://rpc.ankr.com/monad_testnet";
+const MONAD_RPC_URL = "https://testnet-rpc.monad.xyz";
 
 export const publicClient = createPublicClient({
   chain: MONAD_TESTNET,
@@ -145,11 +145,18 @@ export async function connectWallet(): Promise<Address> {
       signer: { walletClient },
     });
 
-    console.log("Using Monad RPC for bundler:", MONAD_RPC_URL);
+    const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY;
+    
+    if (!pimlicoApiKey) {
+      throw new Error("VITE_PIMLICO_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
+    }
+
+    const bundlerUrl = `https://api.pimlico.io/v2/10143/rpc?apikey=${pimlicoApiKey}`;
+    console.log("Using Pimlico bundler for Smart Accounts on Monad testnet");
 
     currentBundlerClient = createBundlerClient({
       client: publicClient,
-      transport: http(MONAD_RPC_URL),
+      transport: http(bundlerUrl),
     });
 
     console.log("Smart Account created:", currentSmartAccount.address);
