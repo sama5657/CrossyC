@@ -183,6 +183,9 @@ This project uses the **MetaMask Delegation Toolkit SDK** to implement ERC-4337 
 ### Deployment Notes
 
 - **Netlify Configuration**: `netlify.toml` + `client/public/_redirects` for SPA routing
-- **Environment Variable**: Set `VITE_CONTRACT_ADDRESS` after deploying ScoreStore.sol
+- **Required Environment Variables**:
+  - `VITE_CONTRACT_ADDRESS`: ScoreStore.sol contract address on Monad testnet
+  - `VITE_PIMLICO_API_KEY`: Free API key from https://dashboard.pimlico.io (required for bundler)
 - **Smart Contract**: Deploy to Monad testnet using Hardhat with deployer private key
 - **Gas Costs**: User pays gas for user operations (paymaster integration optional)
+- **Setup Guide**: See `SETUP.md` for complete setup instructions

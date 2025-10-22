@@ -143,9 +143,18 @@ export async function connectWallet(): Promise<Address> {
       signer: { walletClient },
     });
 
+    const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY;
+    const bundlerUrl = pimlicoApiKey 
+      ? `https://api.pimlico.io/v2/10143/rpc?apikey=${pimlicoApiKey}`
+      : "https://rpc.ankr.com/monad_testnet";
+
+    if (!pimlicoApiKey) {
+      console.warn("VITE_PIMLICO_API_KEY not set. Using regular RPC - user operations may fail. Get free API key at https://dashboard.pimlico.io");
+    }
+
     currentBundlerClient = createBundlerClient({
       client: publicClient,
-      transport: http("https://rpc.ankr.com/monad_testnet"),
+      transport: http(bundlerUrl),
     });
 
     console.log("Smart Account created:", currentSmartAccount.address);
