@@ -207,10 +207,14 @@ async function saveScoreViaSmartAccount(
   console.log("Bundler URL:", BUNDLER_URL);
   console.log("Score:", score);
 
+  if (!BUNDLER_URL) {
+    throw new Error("Bundler URL not configured - VITE_ALCHEMY_API_KEY is missing");
+  }
+
   const startTime = Date.now();
   let progressInterval: any = null;
-  const SA_TIMEOUT = 15000; // Reduced from 30s to 15s for faster fallback
-  const SEND_TIMEOUT = 5000; // 5 second timeout for sending user op
+  const SA_TIMEOUT = 20000; // Total timeout for Smart Account transaction
+  const SEND_TIMEOUT = 12000; // 12 second timeout for sending user op (Alchemy can be slow)
 
   if (onProgress) {
     onProgress("Preparing Smart Account transaction...", 0);
