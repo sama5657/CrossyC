@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export function initializeGame(
   container: HTMLElement,
   onScoreUpdate: (score: number) => void,
@@ -14,7 +16,6 @@ export function initializeGame(
   container.appendChild(counterDOM);
   container.appendChild(endDOM);
 
-  const THREE = (window as any).THREE;
   if (!THREE) {
     console.error("Three.js not loaded");
     return null;
