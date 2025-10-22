@@ -1,52 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, TrendingUp } from "lucide-react";
-import { getTopScoresFromBlockchain } from "@/lib/web3";
-import type { LeaderboardEntry } from "@/lib/web3";
 
 export default function Leaderboard() {
   const [, setLocation] = useLocation();
-  const [scores, setScores] = useState<LeaderboardEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    const fetchScores = async () => {
-      try {
-        setIsLoading(true);
-        setError(undefined);
-        const topScores = await getTopScoresFromBlockchain();
-        setScores(topScores);
-      } catch (err) {
-        console.error("Failed to fetch leaderboard:", err);
-        setError("Failed to load leaderboard. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchScores();
-
-    const interval = setInterval(fetchScores, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const truncateAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   return (
     <div className="relative w-full min-h-screen bg-background p-8">
