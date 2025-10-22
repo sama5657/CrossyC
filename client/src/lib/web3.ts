@@ -1,4 +1,18 @@
-import { createPublicClient, createWalletClient, custom, http, type Address } from "viem";
+import { 
+  createPublicClient, 
+  createWalletClient, 
+  custom, 
+  http, 
+  type Address,
+  parseAbi,
+  encodeFunctionData
+} from "viem";
+import { createBundlerClient, type UserOperation } from "viem/account-abstraction";
+import { 
+  Implementation, 
+  toMetaMaskSmartAccount,
+  type MetaMaskSmartAccount
+} from "@metamask/delegation-toolkit";
 
 export const MONAD_TESTNET = {
   id: 10143,
@@ -64,7 +78,10 @@ export const publicClient = createPublicClient({
   transport: http(),
 });
 
-export async function connectWallet() {
+let currentSmartAccount: MetaMaskSmartAccount<Implementation.Hybrid> | null = null;
+let currentBundlerClient: ReturnType<typeof createBundlerClient> | null = null;
+
+export async function connectWallet(): Promise<Address> {
   if (typeof window.ethereum === "undefined") {
     const error = new Error("MetaMask not installed");
     error.name = "MetaMaskNotInstalledError";
@@ -107,7 +124,47 @@ export async function connectWallet() {
     }
   }
 
-  return accounts[0];
+  const eoaAddress = accounts[0];
+
+  const walletClient = createWalletClient({
+    account: eoaAddress,
+    chain: MONAD_TESTNET,
+    transport: custom(window.ethereum),
+  });
+
+  console.log("Creating MetaMask Smart Account for EOA:", eoaAddress);
+
+  try {
+    currentSmartAccount = await toMetaMaskSmartAccount({
+      client: publicClient,
+      implementation: Implementation.Hybrid,
+      deployParams: [eoaAddress, [], [], []],
+      deploySalt: "0x",
+      signatory: { walletClient },
+    });
+
+    currentBundlerClient = createBundlerClient({
+      client: publicClient,
+      transport: http("https://rpc.ankr.com/monad_testnet"),
+    });
+
+    console.log("Smart Account created:", currentSmartAccount.address);
+    console.log("Smart Account is deployed:", await isSmartAccountDeployed(currentSmartAccount.address));
+
+    return currentSmartAccount.address;
+  } catch (error) {
+    console.error("Failed to create smart account:", error);
+    throw new Error("Failed to create MetaMask Smart Account. Please try again.");
+  }
+}
+
+export async function isSmartAccountDeployed(address: Address): Promise<boolean> {
+  try {
+    const code = await publicClient.getBytecode({ address });
+    return code !== undefined && code !== "0x";
+  } catch {
+    return false;
+  }
 }
 
 export async function saveScoreToBlockchain(score: number): Promise<string> {
@@ -119,29 +176,62 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     throw new Error("Contract not deployed. Please deploy the ScoreStore contract and set VITE_CONTRACT_ADDRESS environment variable.");
   }
 
+  if (!currentSmartAccount || !currentBundlerClient) {
+    throw new Error("Smart Account not initialized. Please connect wallet first.");
+  }
+
   try {
-    const walletClient = createWalletClient({
-      chain: MONAD_TESTNET,
-      transport: custom(window.ethereum),
-    });
+    console.log("Submitting score via Smart Account:", currentSmartAccount.address);
+    console.log("Score:", score);
 
-    const [account] = await walletClient.getAddresses();
-
-    const hash = await walletClient.writeContract({
-      address: CONTRACT_ADDRESS,
+    const callData = encodeFunctionData({
       abi: SCORE_STORE_ABI,
       functionName: "saveScore",
       args: [BigInt(score)],
-      account,
     });
 
-    return hash;
+    const isDeployed = await isSmartAccountDeployed(currentSmartAccount.address);
+    
+    if (!isDeployed) {
+      console.log("Smart Account not deployed yet, will deploy with first transaction");
+    }
+
+    const gasPrice = await publicClient.getGasPrice();
+    const maxFeePerGas = gasPrice * 2n;
+    const maxPriorityFeePerGas = gasPrice / 2n;
+
+    console.log("Sending user operation...");
+    const userOperationHash = await currentBundlerClient.sendUserOperation({
+      account: currentSmartAccount,
+      calls: [
+        {
+          to: CONTRACT_ADDRESS,
+          data: callData,
+          value: 0n,
+        },
+      ],
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    });
+
+    console.log("User operation hash:", userOperationHash);
+
+    console.log("Waiting for transaction receipt...");
+    const receipt = await currentBundlerClient.waitForUserOperationReceipt({
+      hash: userOperationHash,
+    });
+
+    console.log("Transaction confirmed:", receipt.receipt.transactionHash);
+    return receipt.receipt.transactionHash;
   } catch (error: any) {
-    if (error?.code === 4001) {
+    console.error("Error saving score:", error);
+    
+    if (error?.code === 4001 || error?.message?.includes("User rejected")) {
       const userRejectionError = new Error("User rejected");
-      userRejectionError.code = 4001;
+      (userRejectionError as any).code = 4001;
       throw userRejectionError;
     }
+    
     throw error;
   }
 }
@@ -201,7 +291,6 @@ async function fetchLogsWithRetry(
 
       const data = await logsResponse.json();
 
-      // Check for RPC error
       if (data.error) {
         throw new Error(`RPC Error: ${data.error.message}`);
       }
@@ -213,7 +302,7 @@ async function fetchLogsWithRetry(
       return data.result || [];
     } catch (error) {
       const isLastAttempt = attempt === maxRetries - 1;
-      const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+      const delay = Math.pow(2, attempt) * 1000;
 
       if (isLastAttempt) {
         console.error(
@@ -227,7 +316,6 @@ async function fetchLogsWithRetry(
         `Attempt ${attempt + 1} failed for block range ${fromBlock} - ${toBlock}, retrying in ${delay}ms...`
       );
 
-      // Wait before retrying
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
@@ -237,7 +325,6 @@ async function fetchLogsWithRetry(
 
 export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> {
   try {
-    // Check if contract address is valid
     if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
       console.warn(
         "Smart contract address not configured. Please set VITE_CONTRACT_ADDRESS environment variable."
@@ -247,7 +334,6 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
 
     const playerScores = new Map<string, { score: number; blockNumber: number }>();
 
-    // Get latest block number first
     const blockResponse = await fetch("https://rpc.ankr.com/monad_testnet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -262,7 +348,6 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
     const blockData = await blockResponse.json();
     const latestBlockNumber = parseInt(blockData.result || "0", 16);
 
-    // Fetch logs in chunks of 100 blocks (Monad RPC limit is 100 block range per query)
     const chunkSize = 100;
 
     for (let fromBlock = 0; fromBlock <= latestBlockNumber; fromBlock += chunkSize) {
@@ -270,7 +355,6 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
 
       const logs = await fetchLogsWithRetry(fromBlock, toBlock);
 
-      // Parse logs and get latest score for each player
       for (const log of logs) {
         if (!log.topics || log.topics.length < 2 || !log.data) continue;
 
@@ -293,14 +377,13 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
       }
     }
 
-    // Convert to array and sort by score descending
     const sorted = Array.from(playerScores.entries())
       .map(([player, data]) => ({
         player: player as Address,
         score: data.score,
       }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10); // Top 10
+      .slice(0, 10);
 
     const entries: LeaderboardEntry[] = sorted.map((entry, index) => ({
       rank: index + 1,
