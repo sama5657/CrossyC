@@ -705,5 +705,6 @@ export function initializeGame(
   return {
     move,
     retry,
+    stop,
   };
 }
