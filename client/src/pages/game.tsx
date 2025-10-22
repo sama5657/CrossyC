@@ -136,6 +136,7 @@ export default function Game() {
   const handleRetry = () => {
     setGameOver(false);
     setScore(0);
+    setPlayerRank(undefined);
     setTransactionData({ status: "idle" });
     gameInstanceRef.current?.retry();
   };
