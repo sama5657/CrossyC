@@ -81,6 +81,12 @@ export default function Game() {
         smartAccountAddress: address,
         chainId: 10143,
       });
+
+      toast({
+        title: "Wallet Connected!",
+        description: `Smart Account created: ${address.slice(0, 6)}...${address.slice(-4)}. Please fund this account with MON tokens to pay for gas fees.`,
+        duration: 8000,
+      });
     } catch (error) {
       let errorMessage = "Failed to connect wallet";
 
@@ -142,7 +148,14 @@ export default function Game() {
         isUserRejection = true;
       } else if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
         const address = error.message.split(":")[1] || walletState.smartAccountAddress;
-        errorMessage = `Your Smart Account needs MON tokens to pay for gas fees.\n\nSmart Account: ${address}\n\nPlease send some MON tokens from your MetaMask wallet to this Smart Account address, then try again.\n\nYou can get free testnet MON from the Monad faucet.`;
+        setShowTransactionModal(false);
+        toast({
+          title: "Fund Smart Account",
+          description: `Your Smart Account needs MON tokens to pay gas fees. Send MON to: ${address}`,
+          variant: "destructive",
+          duration: 10000,
+        });
+        return;
       } else if (error?.name === "TransactionPendingError" || error?.message?.includes("PENDING:")) {
         const userOpHash = error.message.split(":")[1];
         setTransactionData({

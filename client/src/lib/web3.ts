@@ -145,18 +145,11 @@ export async function connectWallet(): Promise<Address> {
       signer: { walletClient },
     });
 
-    const alchemyApiKey = import.meta.env.VITE_ALCHEMY_API_KEY;
-    
-    if (!alchemyApiKey) {
-      throw new Error("VITE_ALCHEMY_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
-    }
-
-    const bundlerUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
-    console.log("Using Alchemy bundler for Smart Accounts on Monad testnet");
+    console.log("Using Monad RPC as bundler for Smart Accounts");
 
     currentBundlerClient = createBundlerClient({
       client: publicClient,
-      transport: http(bundlerUrl),
+      transport: http(MONAD_RPC_URL),
     });
 
     console.log("Smart Account created:", currentSmartAccount.address);
@@ -243,7 +236,7 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     try {
       const receipt = await currentBundlerClient.waitForUserOperationReceipt({
         hash: userOperationHash,
-        timeout: 300_000,
+        timeout: 30_000,
       });
 
       console.log("Transaction confirmed:", receipt.receipt.transactionHash);
