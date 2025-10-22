@@ -73,9 +73,11 @@ export const SCORE_STORE_ABI = [
   },
 ] as const;
 
+const MONAD_RPC_URL = "https://testnet-rpc.monad.xyz";
+
 export const publicClient = createPublicClient({
   chain: MONAD_TESTNET,
-  transport: http(),
+  transport: http(MONAD_RPC_URL),
 });
 
 let currentSmartAccount: any = null;
@@ -144,13 +146,13 @@ export async function connectWallet(): Promise<Address> {
     });
 
     const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY;
-    const bundlerUrl = pimlicoApiKey 
-      ? `https://api.pimlico.io/v2/10143/rpc?apikey=${pimlicoApiKey}`
-      : "https://rpc.ankr.com/monad_testnet";
-
+    
     if (!pimlicoApiKey) {
-      console.warn("VITE_PIMLICO_API_KEY not set. Using regular RPC - user operations may fail. Get free API key at https://dashboard.pimlico.io");
+      throw new Error("VITE_PIMLICO_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
     }
+
+    const bundlerUrl = `https://api.pimlico.io/v2/10143/rpc?apikey=${pimlicoApiKey}`;
+    console.log("Using Pimlico bundler for Smart Accounts on Monad testnet");
 
     currentBundlerClient = createBundlerClient({
       client: publicClient,
@@ -176,6 +178,15 @@ export async function isSmartAccountDeployed(address: Address): Promise<boolean>
   }
 }
 
+export async function getSmartAccountBalance(address: Address): Promise<bigint> {
+  try {
+    const balance = await publicClient.getBalance({ address });
+    return balance;
+  } catch {
+    return BigInt(0);
+  }
+}
+
 export async function saveScoreToBlockchain(score: number): Promise<string> {
   if (typeof window.ethereum === "undefined") {
     throw new Error("MetaMask not installed");
@@ -192,6 +203,9 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
   try {
     console.log("Submitting score via Smart Account:", currentSmartAccount.address);
     console.log("Score:", score);
+
+    const balance = await getSmartAccountBalance(currentSmartAccount.address);
+    console.log("Smart Account balance:", balance.toString(), "wei");
 
     const callData = encodeFunctionData({
       abi: SCORE_STORE_ABI,
@@ -226,12 +240,23 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     console.log("User operation hash:", userOperationHash);
 
     console.log("Waiting for transaction receipt...");
-    const receipt = await currentBundlerClient.waitForUserOperationReceipt({
-      hash: userOperationHash,
-    });
+    try {
+      const receipt = await currentBundlerClient.waitForUserOperationReceipt({
+        hash: userOperationHash,
+        timeout: 300_000,
+      });
 
-    console.log("Transaction confirmed:", receipt.receipt.transactionHash);
-    return receipt.receipt.transactionHash;
+      console.log("Transaction confirmed:", receipt.receipt.transactionHash);
+      return receipt.receipt.transactionHash;
+    } catch (timeoutError: any) {
+      if (timeoutError?.name === "WaitForUserOperationReceiptTimeoutError") {
+        console.warn("Transaction timed out, but may still be processing");
+        const pendingError = new Error(`PENDING:${userOperationHash}`);
+        pendingError.name = "TransactionPendingError";
+        throw pendingError;
+      }
+      throw timeoutError;
+    }
   } catch (error: any) {
     console.error("Error saving score:", error);
     
@@ -239,6 +264,16 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
       const userRejectionError = new Error("User rejected");
       (userRejectionError as any).code = 4001;
       throw userRejectionError;
+    }
+    
+    if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
+      throw error;
+    }
+    
+    if (error?.message?.includes("didn't pay prefund") || error?.message?.includes("AA21") || error?.message?.includes("insufficient funds")) {
+      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
+      fundError.name = "InsufficientFundsError";
+      throw fundError;
     }
     
     throw error;

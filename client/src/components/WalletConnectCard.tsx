@@ -53,11 +53,32 @@ export function WalletConnectCard({
             <span className="text-xs font-mono text-muted-foreground">Connected</span>
           </div>
           {smartAccountAddress && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-foreground" data-testid="text-wallet-address">
-                {truncateAddress(smartAccountAddress)}
-              </span>
-            </div>
+            <>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-mono text-muted-foreground">Smart Account:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-foreground" data-testid="text-wallet-address">
+                    {truncateAddress(smartAccountAddress)}
+                  </span>
+                  <Button
+                    onClick={handleCopy}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    data-testid="button-copy-address"
+                  >
+                    {copied ? (
+                      <Check className="h-3 w-3 text-primary" />
+                    ) : (
+                      <Copy className="h-3 w-3 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="text-[9px] text-muted-foreground max-w-[200px] leading-tight">
+                This Smart Account needs MON tokens to pay gas fees
+              </div>
+            </>
           )}
         </div>
       )}
