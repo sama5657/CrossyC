@@ -300,7 +300,7 @@ export async function getTopScoresFromBlockchain(): Promise<LeaderboardEntry[]> 
         score: data.score,
       }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 20); // Top 20
+      .slice(0, 10); // Top 10
 
     const entries: LeaderboardEntry[] = sorted.map((entry, index) => ({
       rank: index + 1,
