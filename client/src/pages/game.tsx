@@ -196,7 +196,21 @@ export default function Game() {
         <div className="w-full h-full flex flex-col items-center justify-center gap-8">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-primary mb-4">Crossy Road</h1>
-            <p className="text-lg text-muted-foreground">Connect your wallet to start playing</p>
+            <p className="text-lg text-muted-foreground mb-8">Connect your wallet to start playing</p>
+
+            <div className="bg-card/80 border-2 border-primary/30 rounded-lg p-6 max-w-md">
+              <p className="text-sm text-muted-foreground mb-4">Controls</p>
+              <div className="space-y-3">
+                <div className="text-left">
+                  <p className="text-xs font-mono text-primary font-bold mb-1">ARROW KEYS</p>
+                  <p className="text-xs text-muted-foreground">↑ Move Forward • ↓ Move Backward • ← Move Left • → Move Right</p>
+                </div>
+                <div className="text-left border-t border-primary/20 pt-3">
+                  <p className="text-xs font-mono text-primary font-bold mb-1">WASD KEYS</p>
+                  <p className="text-xs text-muted-foreground">W Forward • S Backward • A Left • D Right</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
