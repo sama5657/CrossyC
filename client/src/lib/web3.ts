@@ -82,6 +82,7 @@ export const publicClient = createPublicClient({
 
 let currentSmartAccount: any = null;
 let currentBundlerClient: any = null;
+let currentEOAWalletClient: any = null;
 
 export async function connectWallet(): Promise<Address> {
   if (typeof window.ethereum === "undefined") {
@@ -133,6 +134,8 @@ export async function connectWallet(): Promise<Address> {
     chain: MONAD_TESTNET,
     transport: custom(window.ethereum),
   });
+
+  currentEOAWalletClient = walletClient;
 
   console.log("Creating MetaMask Smart Account for EOA:", eoaAddress);
 
@@ -207,6 +210,12 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     const balance = await getSmartAccountBalance(currentSmartAccount.address);
     console.log("Smart Account balance:", balance.toString(), "wei");
 
+    if (balance === BigInt(0)) {
+      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
+      fundError.name = "InsufficientFundsError";
+      throw fundError;
+    }
+
     const callData = encodeFunctionData({
       abi: SCORE_STORE_ABI,
       functionName: "saveScore",
@@ -223,39 +232,59 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     const maxFeePerGas = gasPrice * BigInt(2);
     const maxPriorityFeePerGas = gasPrice / BigInt(2);
 
-    console.log("Sending user operation...");
-    const userOperationHash = await currentBundlerClient.sendUserOperation({
-      account: currentSmartAccount,
-      calls: [
-        {
-          to: CONTRACT_ADDRESS,
-          data: callData,
-          value: BigInt(0),
-        },
-      ],
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-    });
-
-    console.log("User operation hash:", userOperationHash);
-
-    console.log("Waiting for transaction receipt...");
+    console.log("Attempting bundler user operation...");
     try {
+      const userOperationHash = await currentBundlerClient.sendUserOperation({
+        account: currentSmartAccount,
+        calls: [
+          {
+            to: CONTRACT_ADDRESS,
+            data: callData,
+            value: BigInt(0),
+          },
+        ],
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      });
+
+      console.log("User operation hash:", userOperationHash);
+      console.log("Waiting for bundler receipt (10s timeout)...");
+
       const receipt = await currentBundlerClient.waitForUserOperationReceipt({
         hash: userOperationHash,
+        timeout: 10_000,
+      });
+
+      console.log("Bundler transaction confirmed:", receipt.receipt.transactionHash);
+      return receipt.receipt.transactionHash;
+    } catch (bundlerError: any) {
+      console.warn("Bundler failed, falling back to direct transaction from EOA:", bundlerError.message);
+      
+      if (!currentEOAWalletClient) {
+        throw new Error("Wallet client not available for fallback transaction");
+      }
+      
+      console.log("Sending direct transaction from EOA wallet...");
+      
+      const txHash = await currentEOAWalletClient.writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: SCORE_STORE_ABI,
+        functionName: "saveScore",
+        args: [BigInt(score)],
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      });
+
+      console.log("Direct transaction hash:", txHash);
+      console.log("Waiting for transaction confirmation...");
+
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
         timeout: 30_000,
       });
 
-      console.log("Transaction confirmed:", receipt.receipt.transactionHash);
-      return receipt.receipt.transactionHash;
-    } catch (timeoutError: any) {
-      if (timeoutError?.name === "WaitForUserOperationReceiptTimeoutError") {
-        console.warn("Transaction timed out, but may still be processing");
-        const pendingError = new Error(`PENDING:${userOperationHash}`);
-        pendingError.name = "TransactionPendingError";
-        throw pendingError;
-      }
-      throw timeoutError;
+      console.log("Direct transaction confirmed in block:", receipt.blockNumber);
+      return txHash;
     }
   } catch (error: any) {
     console.error("Error saving score:", error);
@@ -270,7 +299,7 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
       throw error;
     }
     
-    if (error?.message?.includes("didn't pay prefund") || error?.message?.includes("AA21") || error?.message?.includes("insufficient funds")) {
+    if (error?.message?.includes("insufficient funds") || error?.message?.includes("exceeds balance")) {
       const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
       fundError.name = "InsufficientFundsError";
       throw fundError;
