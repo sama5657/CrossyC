@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Wallet, Copy, Check } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getSmartAccountBalance } from "@/lib/web3";
+import { publicClient } from "@/lib/web3";
 import type { Address } from "viem";
 
 interface WalletConnectCardProps {
@@ -24,7 +24,7 @@ export function WalletConnectCard({
   useEffect(() => {
     if (smartAccountAddress && isConnected) {
       const fetchBalance = async () => {
-        const bal = await getSmartAccountBalance(smartAccountAddress as Address);
+        const bal = await publicClient.getBalance({ address: smartAccountAddress as Address });
         const monBalance = Number(bal) / 1e18;
         setBalance(monBalance.toFixed(4));
       };
@@ -71,7 +71,7 @@ export function WalletConnectCard({
           {smartAccountAddress && (
             <>
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-mono text-muted-foreground">Smart Account:</span>
+                <span className="text-[10px] font-mono text-muted-foreground">Wallet Address:</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-foreground" data-testid="text-wallet-address">
                     {truncateAddress(smartAccountAddress)}

@@ -3,16 +3,8 @@ import {
   createWalletClient, 
   custom, 
   http, 
-  type Address,
-  parseAbi,
-  encodeFunctionData
+  type Address
 } from "viem";
-import { createBundlerClient, createPaymasterClient, type UserOperation } from "viem/account-abstraction";
-import { 
-  Implementation, 
-  toMetaMaskSmartAccount,
-  type MetaMaskSmartAccount
-} from "@metamask/delegation-toolkit";
 
 export const MONAD_TESTNET = {
   id: 10143,
@@ -80,9 +72,8 @@ export const publicClient = createPublicClient({
   transport: http(MONAD_RPC_URL),
 });
 
-let currentSmartAccount: any = null;
-let currentBundlerClient: any = null;
 let currentEOAWalletClient: any = null;
+let currentEOAAddress: Address | null = null;
 
 export async function connectWallet(): Promise<Address> {
   if (typeof window.ethereum === "undefined") {
@@ -128,6 +119,7 @@ export async function connectWallet(): Promise<Address> {
   }
 
   const eoaAddress = accounts[0];
+  currentEOAAddress = eoaAddress;
 
   const walletClient = createWalletClient({
     account: eoaAddress,
@@ -137,78 +129,11 @@ export async function connectWallet(): Promise<Address> {
 
   currentEOAWalletClient = walletClient;
 
-  console.log("Creating MetaMask Smart Account for EOA:", eoaAddress);
+  console.log("Connected EOA wallet:", eoaAddress);
 
-  try {
-    currentSmartAccount = await toMetaMaskSmartAccount({
-      client: publicClient,
-      implementation: Implementation.Hybrid,
-      deployParams: [eoaAddress, [], [], []],
-      deploySalt: "0x",
-      signer: { walletClient },
-    });
-
-    const alchemyApiKey = import.meta.env.VITE_ALCHEMY_API_KEY;
-    const gasPolicyId = import.meta.env.VITE_ALCHEMY_GAS_POLICY_ID;
-    
-    if (!alchemyApiKey) {
-      throw new Error("VITE_ALCHEMY_API_KEY is required for Smart Account transactions. Please set it in your environment variables.");
-    }
-
-    const bundlerUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
-    
-    if (gasPolicyId) {
-      console.log("Using Alchemy bundler with Gas Manager paymaster for sponsored transactions");
-      
-      const paymasterClient = createPaymasterClient({
-        transport: http(bundlerUrl),
-      });
-
-      currentBundlerClient = createBundlerClient({
-        client: publicClient,
-        transport: http(bundlerUrl),
-        paymaster: paymasterClient,
-        paymasterContext: {
-          policyId: gasPolicyId,
-        },
-      });
-    } else {
-      console.log("Using Alchemy bundler without paymaster (user-funded Smart Account)");
-      console.log("To enable gas sponsorship, set VITE_ALCHEMY_GAS_POLICY_ID in your environment");
-      
-      currentBundlerClient = createBundlerClient({
-        client: publicClient,
-        transport: http(bundlerUrl),
-      });
-    }
-
-    console.log("Smart Account created:", currentSmartAccount.address);
-    console.log("Smart Account is deployed:", await isSmartAccountDeployed(currentSmartAccount.address));
-
-    return currentSmartAccount.address;
-  } catch (error) {
-    console.error("Failed to create smart account:", error);
-    throw new Error("Failed to create MetaMask Smart Account. Please try again.");
-  }
+  return eoaAddress;
 }
 
-export async function isSmartAccountDeployed(address: Address): Promise<boolean> {
-  try {
-    const code = await publicClient.getBytecode({ address });
-    return code !== undefined && code !== "0x";
-  } catch {
-    return false;
-  }
-}
-
-export async function getSmartAccountBalance(address: Address): Promise<bigint> {
-  try {
-    const balance = await publicClient.getBalance({ address });
-    return balance;
-  } catch {
-    return BigInt(0);
-  }
-}
 
 export async function saveScoreToBlockchain(score: number): Promise<string> {
   if (typeof window.ethereum === "undefined") {
@@ -219,94 +144,36 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     throw new Error("Contract not deployed. Please deploy the ScoreStore contract and set VITE_CONTRACT_ADDRESS environment variable.");
   }
 
-  if (!currentSmartAccount || !currentBundlerClient) {
-    throw new Error("Smart Account not initialized. Please connect wallet first.");
+  if (!currentEOAWalletClient || !currentEOAAddress) {
+    throw new Error("Wallet not connected. Please connect your wallet first.");
   }
 
-  const gasPolicyId = import.meta.env.VITE_ALCHEMY_GAS_POLICY_ID;
-  const hasPaymaster = !!gasPolicyId;
-
   try {
-    console.log("Submitting score via Smart Account:", currentSmartAccount.address);
+    console.log("Submitting score via EOA wallet:", currentEOAAddress);
     console.log("Score:", score);
 
-    const balance = await getSmartAccountBalance(currentSmartAccount.address);
-    console.log("Smart Account balance:", balance.toString(), "wei");
+    const balance = await publicClient.getBalance({ address: currentEOAAddress });
+    console.log("EOA wallet balance:", balance.toString(), "wei");
 
-    if (!hasPaymaster && balance === BigInt(0)) {
-      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
+    if (balance === BigInt(0)) {
+      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentEOAAddress}`);
       fundError.name = "InsufficientFundsError";
       throw fundError;
     }
 
-    const callData = encodeFunctionData({
+    console.log("Sending transaction from EOA wallet...");
+    
+    const txHash = await currentEOAWalletClient.writeContract({
+      address: CONTRACT_ADDRESS,
       abi: SCORE_STORE_ABI,
       functionName: "saveScore",
       args: [BigInt(score)],
     });
 
-    const isDeployed = await isSmartAccountDeployed(currentSmartAccount.address);
-    
-    if (!isDeployed) {
-      console.log("Smart Account not deployed yet, will deploy with first transaction");
-    }
+    console.log("Transaction hash:", txHash);
+    console.log("Transaction submitted successfully!");
 
-    const gasPrice = await publicClient.getGasPrice();
-    const maxFeePerGas = gasPrice * BigInt(2);
-    const maxPriorityFeePerGas = gasPrice / BigInt(2);
-
-    if (hasPaymaster) {
-      console.log("Sending user operation via Alchemy bundler with Gas Manager paymaster...");
-    } else {
-      console.log("Sending user operation via Alchemy bundler (user-funded)...");
-    }
-
-    try {
-      const userOperationHash = await currentBundlerClient.sendUserOperation({
-        account: currentSmartAccount,
-        calls: [
-          {
-            to: CONTRACT_ADDRESS,
-            data: callData,
-            value: BigInt(0),
-          },
-        ],
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-
-      console.log("User operation hash:", userOperationHash);
-      console.log("Transaction submitted! Returning immediately for faster UX.");
-
-      // Return the user operation hash immediately without waiting for confirmation
-      // This reduces loading time from 30s+ to instant
-      // The transaction will still be processed by the bundler
-      return userOperationHash;
-    } catch (bundlerError: any) {
-      console.warn("Bundler failed, falling back to direct transaction from EOA:", bundlerError.message);
-      
-      if (!currentEOAWalletClient) {
-        throw new Error("Wallet client not available for fallback transaction");
-      }
-      
-      console.log("Sending direct transaction from EOA wallet...");
-      
-      const txHash = await currentEOAWalletClient.writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: SCORE_STORE_ABI,
-        functionName: "saveScore",
-        args: [BigInt(score)],
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-
-      console.log("Direct transaction hash:", txHash);
-      console.log("Transaction submitted! Returning immediately.");
-
-      // Return immediately without waiting for confirmation
-      // This significantly improves UX by reducing wait time
-      return txHash;
-    }
+    return txHash;
   } catch (error: any) {
     console.error("Error saving score:", error);
     
@@ -321,7 +188,7 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     }
     
     if (error?.message?.includes("insufficient funds") || error?.message?.includes("exceeds balance")) {
-      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
+      const fundError = new Error(`INSUFFICIENT_FUNDS:${currentEOAAddress}`);
       fundError.name = "InsufficientFundsError";
       throw fundError;
     }

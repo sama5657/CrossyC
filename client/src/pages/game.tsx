@@ -86,8 +86,8 @@ export default function Game() {
 
       toast({
         title: "Wallet Connected!",
-        description: `Smart Account created: ${address.slice(0, 6)}...${address.slice(-4)}. Please fund this account with MON tokens to pay for gas fees.`,
-        duration: 8000,
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)} on Monad Testnet.`,
+        duration: 5000,
       });
     } catch (error) {
       let errorMessage = "Failed to connect wallet";
@@ -151,23 +151,12 @@ export default function Game() {
       } else if (error?.name === "InsufficientFundsError" || error?.message?.includes("INSUFFICIENT_FUNDS")) {
         const address = error.message.split(":")[1] || walletState.smartAccountAddress;
         setShowTransactionModal(false);
+        setTransactionData({ status: "idle" });
         toast({
-          title: "Fund Smart Account",
-          description: `Your Smart Account needs MON tokens to pay gas fees. Send MON to: ${address}`,
+          title: "Insufficient Funds",
+          description: `Your wallet needs MON tokens to pay gas fees. Address: ${address}`,
           variant: "destructive",
           duration: 10000,
-        });
-        return;
-      } else if (error?.name === "TransactionPendingError" || error?.message?.includes("PENDING:")) {
-        const userOpHash = error.message.split(":")[1];
-        setTransactionData({
-          status: "success",
-          hash: userOpHash,
-          explorerUrl: getExplorerUrl(userOpHash),
-        });
-        toast({
-          title: "Transaction Submitted",
-          description: "Your transaction is being processed. It may take a moment to confirm.",
         });
         return;
       } else if (error?.message?.includes("Contract not deployed")) {
@@ -178,6 +167,7 @@ export default function Game() {
 
       if (isUserRejection) {
         setShowTransactionModal(false);
+        setTransactionData({ status: "idle" });
         toast({
           title: "Transaction Cancelled",
           description: errorMessage,
@@ -218,12 +208,12 @@ export default function Game() {
         onConnect={handleConnectWallet}
       />
 
-      {/* Envio HyperSync - Smart Account Balance Display */}
+      {/* Envio HyperSync - Wallet Balance Display */}
       {walletState.isConnected && walletState.smartAccountAddress && (
         <div className="fixed bottom-32 left-8 z-40 w-80">
           <WalletBalanceCard 
             address={walletState.smartAccountAddress as Address} 
-            label="Smart Account"
+            label="Wallet"
           />
         </div>
       )}
