@@ -414,37 +414,62 @@ export async function saveScoreToBlockchain(
 
       // Wrap Smart Account attempt with overall timeout
       try {
-        return await withTimeout(
-          saveScoreViaSmartAccount(score, onProgress),
-          25000,
-          "Smart Account transaction taking too long (>25s), falling back to EOA"
-        );
+        console.log("Attempting Smart Account transaction...");
+        const result = await saveScoreViaSmartAccount(score, onProgress);
+        console.log("✅ Smart Account transaction successful!");
+        return result;
       } catch (smartAccountError: any) {
-        console.error("Smart Account transaction failed:", smartAccountError?.message || smartAccountError);
+        const errorMsg = smartAccountError?.message || String(smartAccountError);
+        console.error("Smart Account error:", errorMsg);
 
-        // Don't fallback on user rejection - let it fail
-        if (smartAccountError?.code === 4001 || smartAccountError?.message?.includes("User rejected")) {
-          console.log("User rejected Smart Account transaction");
-          throw smartAccountError;
+        // Check for specific error types
+        const isUserRejected = errorMsg.includes("User rejected") || smartAccountError?.code === 4001;
+        const isInsufficientFunds =
+          errorMsg.includes("INSUFFICIENT_FUNDS") ||
+          errorMsg.includes("insufficient funds") ||
+          errorMsg.includes("Insufficient funds");
+
+        // User rejected - don't fallback, fail immediately
+        if (isUserRejected) {
+          console.log("❌ User rejected the transaction");
+          const error = new Error("Transaction rejected by user");
+          (error as any).userFriendlyMessage = "You rejected the transaction. Please try again.";
+          throw error;
         }
 
-        // Don't fallback on insufficient funds in Smart Account
-        if (smartAccountError?.name === "InsufficientFundsError" || smartAccountError?.message?.includes("INSUFFICIENT_FUNDS")) {
-          console.log("Insufficient funds in Smart Account");
-          throw smartAccountError;
+        // Insufficient funds - don't fallback, fail immediately
+        if (isInsufficientFunds) {
+          console.log("❌ Insufficient funds in Smart Account");
+          const error = new Error("Not enough funds to pay gas fees");
+          (error as any).userFriendlyMessage = "Your Smart Account doesn't have enough MON to pay gas fees. Please fund it with more MON.";
+          throw error;
         }
 
-        // For all other errors (timeout, network errors, bundler issues, etc), fall back to EOA
-        console.log("Smart Account failed, falling back to EOA wallet...");
+        // For all other errors, try to fall back to EOA
+        console.log("ℹ️ Smart Account failed, trying fallback to EOA wallet...");
         if (onProgress) {
-          onProgress("Smart Account unavailable, switching to EOA wallet...", 0);
+          onProgress("Attempting with EOA wallet...", 0);
         }
 
         try {
-          return await saveScoreViaEOA(score);
+          const result = await saveScoreViaEOA(score);
+          console.log("✅ EOA transaction successful!");
+
+          // Mark that we used fallback
+          (result as any).usedFallback = true;
+
+          return result;
         } catch (eoaError: any) {
-          console.error("EOA fallback also failed:", eoaError);
-          throw eoaError;
+          console.error("❌ EOA fallback also failed:", eoaError?.message || eoaError);
+
+          // Combine error messages
+          const combined = new Error(
+            `Both Smart Account and EOA failed. ${eoaError?.message || "Transaction failed"}`
+          );
+          (combined as any).userFriendlyMessage =
+            "Unable to submit your score to the blockchain. Please check your network connection and try again.";
+
+          throw combined;
         }
       }
     } else {
