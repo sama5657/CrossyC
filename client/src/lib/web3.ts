@@ -73,9 +73,11 @@ export const SCORE_STORE_ABI = [
   },
 ] as const;
 
+const MONAD_RPC_URL = "https://rpc.ankr.com/monad_testnet";
+
 export const publicClient = createPublicClient({
   chain: MONAD_TESTNET,
-  transport: http(),
+  transport: http(MONAD_RPC_URL),
 });
 
 let currentSmartAccount: any = null;
@@ -143,18 +145,11 @@ export async function connectWallet(): Promise<Address> {
       signer: { walletClient },
     });
 
-    const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY;
-    const bundlerUrl = pimlicoApiKey 
-      ? `https://api.pimlico.io/v2/10143/rpc?apikey=${pimlicoApiKey}`
-      : "https://rpc.ankr.com/monad_testnet";
-
-    if (!pimlicoApiKey) {
-      console.warn("VITE_PIMLICO_API_KEY not set. Using regular RPC - user operations may fail. Get free API key at https://dashboard.pimlico.io");
-    }
+    console.log("Using Monad RPC for bundler:", MONAD_RPC_URL);
 
     currentBundlerClient = createBundlerClient({
       client: publicClient,
-      transport: http(bundlerUrl),
+      transport: http(MONAD_RPC_URL),
     });
 
     console.log("Smart Account created:", currentSmartAccount.address);
@@ -204,12 +199,6 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
 
     const balance = await getSmartAccountBalance(currentSmartAccount.address);
     console.log("Smart Account balance:", balance.toString(), "wei");
-
-    if (balance === BigInt(0)) {
-      const error = new Error(`INSUFFICIENT_FUNDS:${currentSmartAccount.address}`);
-      error.name = "InsufficientFundsError";
-      throw error;
-    }
 
     const callData = encodeFunctionData({
       abi: SCORE_STORE_ABI,
