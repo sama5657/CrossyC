@@ -78,8 +78,8 @@ export const publicClient = createPublicClient({
   transport: http(),
 });
 
-let currentSmartAccount: MetaMaskSmartAccount<Implementation.Hybrid> | null = null;
-let currentBundlerClient: ReturnType<typeof createBundlerClient> | null = null;
+let currentSmartAccount: any = null;
+let currentBundlerClient: any = null;
 
 export async function connectWallet(): Promise<Address> {
   if (typeof window.ethereum === "undefined") {
@@ -140,7 +140,7 @@ export async function connectWallet(): Promise<Address> {
       implementation: Implementation.Hybrid,
       deployParams: [eoaAddress, [], [], []],
       deploySalt: "0x",
-      signatory: { walletClient },
+      signer: { walletClient },
     });
 
     currentBundlerClient = createBundlerClient({
@@ -197,8 +197,8 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
     }
 
     const gasPrice = await publicClient.getGasPrice();
-    const maxFeePerGas = gasPrice * 2n;
-    const maxPriorityFeePerGas = gasPrice / 2n;
+    const maxFeePerGas = gasPrice * BigInt(2);
+    const maxPriorityFeePerGas = gasPrice / BigInt(2);
 
     console.log("Sending user operation...");
     const userOperationHash = await currentBundlerClient.sendUserOperation({
@@ -207,7 +207,7 @@ export async function saveScoreToBlockchain(score: number): Promise<string> {
         {
           to: CONTRACT_ADDRESS,
           data: callData,
-          value: 0n,
+          value: BigInt(0),
         },
       ],
       maxFeePerGas,

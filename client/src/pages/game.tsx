@@ -51,7 +51,9 @@ export default function Game() {
         canvasRef.current!,
         (newScore) => setScore(newScore),
         () => {
-          game.stop();
+          if (game) {
+            game.stop();
+          }
           setGameOver(true);
         }
       );
