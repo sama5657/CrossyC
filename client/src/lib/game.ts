@@ -508,7 +508,8 @@ export function initializeGame(
   }
 
   function animate(timestamp: number) {
-    requestAnimationFrame(animate);
+    if (!isGameRunning) return;
+    animationFrameId = requestAnimationFrame(animate);
 
     if (!previousTimestamp) previousTimestamp = timestamp;
     const delta = timestamp - previousTimestamp;
