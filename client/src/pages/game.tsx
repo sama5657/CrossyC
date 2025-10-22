@@ -24,6 +24,7 @@ export default function Game() {
   });
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [playerRank, setPlayerRank] = useState<number | undefined>();
   const [transactionData, setTransactionData] = useState<TransactionData>({
     status: "idle",
   });
